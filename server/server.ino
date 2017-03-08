@@ -9,6 +9,7 @@
 #include <Servo.h>
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
+#include <JeeLib.h>
 
 //**********************************************************************************************
 
@@ -149,7 +150,7 @@ void autoLoop(){
   // if (Serial.available() > 0){
   //   if(Serial.read() == '!'){
   //     makePicture();
-  //     sendPicture();
+  //     //sendPicture();
   //   }
   // }
   auto_service() ;
@@ -159,39 +160,39 @@ void autoLoop(){
  * This function will send the 2D array over RF
  * It currently prints through the Serial port.
  */
-void sendPicture(){
-  for(int i = 0; i < PAN_RES; i++){
-    for (int k = 0; k < TILT_RES; k++){
-      Serial.print(readings[i][k]);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }  
-}
+//void sendPicture(){
+//  for(int i = 0; i < PAN_RES; i++){
+//    for (int k = 0; k < TILT_RES; k++){
+//      Serial.print(readings[i][k]);
+//      Serial.print(" ");
+//    }
+//    Serial.println();
+//  }  
+//}
 
 /*
  * This function iterates through the array of points specified by the servo defaults and resolutions (ie. PAN_DEFAULT, PAN_RES)
  */
-void makePicture(){
-  
-  for (panPos = PAN_DEFAULT - PAN_RES/2; panPos < PAN_DEFAULT + PAN_RES/2; ++panPos) { // PAN loop. Goes around the default angle, res/2 below and res/2 above.
-    // in steps of 1 degree
-    panServo.write(panPos);              // tell servo to go to position in variable 'pos'
-      for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
-        tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
-        delay(15);                       // waits 15ms for the servo to reach the position
-       
-        readings[panPos-75][tiltPos-75] = byte(mlx.readObjectTempC());
-
-//        Serial.print(int(tiltPos-75));
-//        Serial.print(":");
-//        Serial.print(String(readings[panPos-75][tiltPos-75]));
-//        Serial.print(" ");
-      }
-//      Serial.println(int(panPos-75));
-//      Serial.print("\n");
-  }
-}
+//void makePicture(){
+//  
+//  for (panPos = PAN_DEFAULT - PAN_RES/2; panPos < PAN_DEFAULT + PAN_RES/2; ++panPos) { // PAN loop. Goes around the default angle, res/2 below and res/2 above.
+//    // in steps of 1 degree
+//    panServo.write(panPos);              // tell servo to go to position in variable 'pos'
+//      for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
+//        tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
+//        delay(15);                       // waits 15ms for the servo to reach the position
+//       
+//        readings[panPos-75][tiltPos-75] = byte(mlx.readObjectTempC());
+//
+////        Serial.print(int(tiltPos-75));
+////        Serial.print(":");
+////        Serial.print(String(readings[panPos-75][tiltPos-75]));
+////        Serial.print(" ");
+//      }
+////      Serial.println(int(panPos-75));
+////      Serial.print("\n");
+//  }
+//}
 
 /*Waits for Row Request and sends row values if request is received. */
 int auto_service(){
@@ -249,13 +250,15 @@ int CheckRowRequest_init(){
 }
 
 int sendRowResponse(){
+  uint8_t code ;
+  code = INIT_RESPONSE_CODE ;
   //if ( !rf12_canSend() )
     //return -1 ;
   //rf12_recvDone(); // wait for any receiving to finish
   
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
 
-  rf12_sendStart( 0, INIT_RESPONSE_CODE, 1);    /*Send a row of readings data*/
+  rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
@@ -291,7 +294,7 @@ void getRow(){
 
   /*Flush any previous values in the the Row array*/
   for (i = 0 ; i < TILT_RES ; i++)
-    RowReadings = 0 ;
+    //RowReadings = 0.0 ;
 
   for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
     tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
