@@ -9,6 +9,7 @@
 #include <Servo.h>
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
+#include <JeeLib.h>
 
 //**********************************************************************************************
 
@@ -33,7 +34,7 @@
 #define NODE    3
 #define GROUP   212
 
-#define ROW_REQUEST_CODE    0xFF 
+#define REQUEST_INIT_CODE    0xFF 
 #define INIT_RESPONSE_CODE   0xCC
 
 //************************************************************************************************
@@ -72,13 +73,15 @@ void loop() {
 
 /*Send a request to check if the client could issue a row request*/
 int sendRowRequest_init(){
+  uint8_t code ;
+  code = REQUEST_INIT_CODE ;
   //if ( !rf12_canSend() )
     //return -1 ;
   //rf12_recvDone(); // wait for any receiving to finish
   
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
 
-  rf12_sendStart( 0, REQUEST_INIT_CODE, 1);    /*Send a row of readings data*/
+  rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
@@ -118,7 +121,7 @@ int sendRowRequest(uint8_t RowNumber){
 
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
 
-  rf12_sendStart( 0, RowNumber, 1);    /*Send a row of readings data*/
+  rf12_sendStart( 0, RowReadings, 1);    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
@@ -166,7 +169,7 @@ int generate_image(){
     if ( rcvRow() )
       return -1 ;
     delay(20) ;
-    sendRow_COM(i) ;
+    sendRow_COM() ;
     delay(20) ;
   }
 }
