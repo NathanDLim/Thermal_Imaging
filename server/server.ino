@@ -30,6 +30,11 @@
 
 #define MODE_BUTTON_PIN 11 // controls the switching of modes
 
+#define NODE    2
+#define GROUP   212 
+
+#define REQUEST_INIT_CODE    0xFF 
+#define INIT_RESPONSE_CODE   0xCC
 //************************************************************************************************
 
 enum mode_t{ //This is the enum for keeping track of the current mode
@@ -42,10 +47,11 @@ Servo tiltServo;
 
 Adafruit_MLX90614 mlx = Adafruit_MLX90614(); // create the temp sensor object
 
-byte readings[PAN_RES][TILT_RES]; //The array of readings for the automatic picture mode
+//byte readings[PAN_RES][TILT_RES]; //The array of readings for the automatic picture mode
+float RowReadings[TILT_RES] ;
 
-int panPos;
-int tiltPos;
+volatile int panPos;
+volatile int tiltPos;
 
 mode_t mode;
 bool changeMode; // boolean for when the mode should be changed
@@ -64,6 +70,9 @@ void setup() {
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
   mode = mode_t::AUTO;
+
+  rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF
+
   
   Serial.begin(9600);
 }
@@ -137,12 +146,13 @@ void manualLoop(){
  * This function controls all that happens in automatic mode
  */
 void autoLoop(){
-  if (Serial.available() > 0){
-    if(Serial.read() == '!'){
-      makePicture();
-      sendPicture();
-    }
-  }
+  // if (Serial.available() > 0){
+  //   if(Serial.read() == '!'){
+  //     makePicture();
+  //     sendPicture();
+  //   }
+  // }
+  auto_service() ;
 }
 
 /*
@@ -159,7 +169,6 @@ void sendPicture(){
   }  
 }
 
-
 /*
  * This function iterates through the array of points specified by the servo defaults and resolutions (ie. PAN_DEFAULT, PAN_RES)
  */
@@ -171,9 +180,9 @@ void makePicture(){
       for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
         tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
         delay(15);                       // waits 15ms for the servo to reach the position
-
-        
+       
         readings[panPos-75][tiltPos-75] = byte(mlx.readObjectTempC());
+
 //        Serial.print(int(tiltPos-75));
 //        Serial.print(":");
 //        Serial.print(String(readings[panPos-75][tiltPos-75]));
@@ -184,6 +193,128 @@ void makePicture(){
   }
 }
 
+/*Waits for Row Request and sends row values if request is received. */
+int auto_service(){
+  // static int count ;
 
+  // count ++ ; 
+
+    if ( CheckRowRequest_init() == 0 ){
+    delay(20) ;
+    
+    if ( sendRowResponse() )
+      return -1 ;
+    delay(20) ;
+
+    if ( rcv_RowRequest() )
+      return -1 ;
+    delay(20) ;
+
+    getRow() ;
+    delay(100) ;
+
+    if ( sendRow() )
+      return -1 ;
+    delay(20) ;
+    return 0 ;
+  }
+
+  return -1 ;
+}
+
+int CheckRowRequest_init(){
+  /*Check for a received packet*/
+  // if ( !rf12_recvDone() )
+  //   return -1 ;
+
+  /*Wait until receiving is complete*/
+  while ( !( rf12_recvDone() ) ) ;
+
+  /*Check for valid length of the received packet*/
+  if ( rf12_len != 1 )
+    return -1 ;
+
+  //Check for a valid CRC.
+  //--It is a check for data integrity using some mathematical algorithms
+  if ( rf12_crc != 0 )
+    return -1 ;
+
+  /*Check if response is as expc*/
+  if ( *( (uint8_t*) rf12_data ) == REQUEST_INIT_CODE )
+    return 0 ;
+  else
+    return -1 ;
+
+  return -1 ;
+}
+
+int sendRowResponse(){
+  //if ( !rf12_canSend() )
+    //return -1 ;
+  //rf12_recvDone(); // wait for any receiving to finish
+  
+  while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
+
+  rf12_sendStart( 0, INIT_RESPONSE_CODE, 1);    /*Send a row of readings data*/
+  rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+  return 0 ;
+}
+
+/*Receive a row request, and process it to update the Pan Position*/
+int rcv_RowRequest(){
+  uint8_t rowN ;
+
+  panPos = PAN_DEFAULT - PAN_RES/2 ;
+
+  /*Wait until receiving is complete*/
+  while ( !( rf12_recvDone() ) ) ;
+
+  /*Check for valid length of the received packet*/
+  if ( rf12_len != 1 )
+    return -1 ;
+
+  //Check for a valid CRC.
+  //--It is a check for data integrity using some mathematical algorithms
+  if ( rf12_crc != 0 )
+    return -1 ;
+
+  rowN = *( (uint8_t*) rf12_data ) ;
+  panPos += rowN - 1;
+  panServo.write(panPos);              // tell servo to go to position in variable 'pos'
+
+}
+
+
+/*Get values for one row, gets called upon request by client*/
+void getRow(){
+  int i ;
+
+  /*Flush any previous values in the the Row array*/
+  for (i = 0 ; i < TILT_RES ; i++)
+    RowReadings = 0 ;
+
+  for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
+    tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position
+   
+    RowReadings[tiltPos-75] = mlx.readObjectTempC() ;
+  }
+
+}
+
+/*-Sends a row of IR sensor data to the client.
+---Should be called after getRow() has finished execution. */
+int sendRow(){
+  while(!rf12_canSend())
+    rf12_recvDone(); // wait for any receiving to finish
+  rf12_sendStart( 0, RowReadings, TILT_RES*sizeof(float) );    /*Send a row of readings data*/
+  rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+  return 0 ;
+}
+
+/*might not be needed*/
+int canSendRow(){
+
+}
 
 
