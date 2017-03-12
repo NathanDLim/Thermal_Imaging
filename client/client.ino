@@ -3,7 +3,7 @@
  *  Manual Mode reads input from the joystick potentiometers and moves the motors accordingly. It can take an instantaneous temperature reading at the chosen position and send it over RF
  *  Automatic Mode will create an image using a 2D array of readings and send the data over RF
  *  
- *  TEAM CHARLIE
+ *  TEAM CHARLIE - 3C
 */
 
 #include <Servo.h>
