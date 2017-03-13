@@ -9,6 +9,7 @@
 #include <Servo.h>
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
+#define RF69_COMPAT 1
 #include <JeeLib.h>
 
 //**********************************************************************************************
@@ -62,8 +63,9 @@ void setup() {
   rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF
 
   /*DEBUGGING ONLY, CALLING ONCE*/
-  generate_image() ;
   Serial.begin(9600);
+  generate_image() ;
+  
 
 }
 
@@ -80,7 +82,10 @@ int sendRowRequest_init(){
   //rf12_recvDone(); // wait for any receiving to finish
   
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
-
+  Serial.print("checking cansend() ....  ....");
+//  if ( !(rf12_canSend()) )
+//    return -1 ;
+  Serial.print("Starting to send init ....");
   rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
@@ -91,25 +96,29 @@ int CheckRowResponse(){
   /*Check for a received packet*/
   // if ( !rf12_recvDone() )
   //   return -1 ;
-
+  Serial.println("CheckRowResponse  line A");
   /*Wait until receiving is complete*/
-  while ( !( rf12_recvDone() ) ) ;
-
+  while ( !( rf12_recvDone() ) ) {
+    Serial.println("waiting for Row response ....");
+   } ;
+  Serial.println("CheckRowResponse  line B");
   /*Check for valid length of the received packet*/
-  if ( rf12_len != 1 )
-    return -1 ;
-
+  if ( rf12_len != sizeof(uint8_t) ){
+    Serial.print("received length = ");
+    Serial.println(rf12_len);
+    return -1 ;}
+  Serial.println("CheckRowResponse  line C");
   //Check for a valid CRC.
   //--It is a check for data integrity using some mathematical algorithms
   if ( rf12_crc != 0 )
     return -1 ;
-
+  Serial.println("CheckRowResponse  line D");
   /*Check if response is as expc*/
   if ( *( (uint8_t*) rf12_data ) == INIT_RESPONSE_CODE )
     return 0 ;
   else
     return -1 ;
-
+  Serial.println("CheckRowResponse  line E");
   return -1 ;
 }
 
@@ -128,23 +137,23 @@ int sendRowRequest(uint8_t RowNumber){
 
 /*Store the received Row data*/
 int rcvRow(){
-
+  Serial.println("rcvRow  line A");
   /*Check for a received packet*/
-  if ( !rf12_recvDone() )
-    return -1 ;
-
+  while ( !rf12_recvDone() ) ;
+    //return -1 ;
+  Serial.println("rcvRow  line B");
   /*Check for valid length of the received packet*/
   if ( !(rf12_len == TILT_RES*sizeof(int)) )
     return -1 ;
-
+  Serial.println("rcvRow  line C");
   /*Check for a valid CRC.
   --It is a check for data integrity using some mathematical algorithms*/
   if ( !(rf12_crc == 0) )
     return -1 ;
-
+  Serial.println("rcvRow  line D");
   /*Save the received data into the row Array*/
   memcpy(RowReadings, (int*) rf12_data, TILT_RES*sizeof(int) ) ;
-
+  Serial.println("rcvRow  line E");
   return 0 ;
 }
 
@@ -152,22 +161,29 @@ int rcvRow(){
 /*Call this to generate the thermal image onto the target display*/
 int generate_image(){
 
+  Serial.print("Starting generate_image () ...");
   int i ;
-  if (PC_mode != AUTO_READY)
-    return -1 ;
+  if (PC_mode != AUTO_READY){
+    Serial.print("error 1");
+    return -1 ;}
 
-  for (i = 1 ; i <= 1 ; i++){
-    if ( sendRowRequest_init() )
-      return -1 ;
+  for (i = 0 ; i <= 1 ; i++){
+    Serial.print("iterating in generate_image  .... ");
+    if ( sendRowRequest_init() ){
+      Serial.print("error 2");
+      return -1 ;}
     delay (20) ;
-    if ( CheckRowResponse() )
-      return -1 ;
+    if ( CheckRowResponse() ){
+      Serial.print("error 3");
+      return -1 ;}
     delay(20) ;
-    if ( sendRowRequest(i) )
-      return -1 ;
+    if ( sendRowRequest(i) ){
+      Serial.print("error 4");
+      return -1 ;}
     delay(20) ;
-    if ( rcvRow() )
-      return -1 ;
+    if ( rcvRow() ){
+      Serial.print("error 5");
+      return -1 ;}
     delay(20) ;
     sendRow_COM() ;
     delay(20) ;
@@ -177,6 +193,7 @@ int generate_image(){
 /*DEBUGGING ONLY *** Output Row Readings onto the serial COM port */
 void sendRow_COM(){
   for(int i=0;i < TILT_RES;i++){
+    Serial.print("Printing RowReading ...");
     Serial.print(RowReadings[i]);
     Serial.print(" ");
   }
