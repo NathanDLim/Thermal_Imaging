@@ -53,8 +53,8 @@ enum PC_mode_t{
 
 PC_mode_t PC_mode ;
 
-float RowReadings[TILT_RES] ;
-
+// float RowReadings[TILT_RES] ;
+int RowReadings[TILT_RES] ;
 
 
 void setup() {
@@ -121,7 +121,7 @@ int sendRowRequest(uint8_t RowNumber){
 
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
 
-  rf12_sendStart( 0, RowReadings, 1);    /*Send a row of readings data*/
+  rf12_sendStart( 0, &RowNumber, 1);    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
@@ -134,7 +134,7 @@ int rcvRow(){
     return -1 ;
 
   /*Check for valid length of the received packet*/
-  if ( !(rf12_len == TILT_RES*sizeof(float)) )
+  if ( !(rf12_len == TILT_RES*sizeof(int)) )
     return -1 ;
 
   /*Check for a valid CRC.
