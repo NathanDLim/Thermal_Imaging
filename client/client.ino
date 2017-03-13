@@ -143,7 +143,7 @@ int rcvRow(){
     return -1 ;
 
   /*Save the received data into the row Array*/
-  memcpy(RowReadings, (float*) rf12_data, TILT_RES*sizeof(float) ) ;
+  memcpy(RowReadings, (int*) rf12_data, TILT_RES*sizeof(int) ) ;
 
   return 0 ;
 }
