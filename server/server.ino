@@ -36,6 +36,11 @@
 
 #define REQUEST_INIT_CODE    0xFF 
 #define INIT_RESPONSE_CODE   0xCC
+
+#define MultiplyFactor      10.000        /*Increases the decimal of the
+                                          temperature float value. This allows sending
+                                          the temperature values as int while keeping decimal places
+                                          e.g. 45.93 degrees celcies sent as 4593 */ 
 //************************************************************************************************
 
 enum mode_t{ //This is the enum for keeping track of the current mode
@@ -49,7 +54,8 @@ Servo tiltServo;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614(); // create the temp sensor object
 
 //byte readings[PAN_RES][TILT_RES]; //The array of readings for the automatic picture mode
-float RowReadings[TILT_RES] ;
+//float RowReadings[TILT_RES] ;
+int RowReadings[TILT_RES] ;
 
 volatile int panPos;
 volatile int tiltPos;
@@ -291,6 +297,7 @@ int rcv_RowRequest(){
 /*Get values for one row, gets called upon request by client*/
 void getRow(){
   int i ;
+  float tempFloat ;
 
   /*Flush any previous values in the the Row array*/
   for (i = 0 ; i < TILT_RES ; i++)
@@ -299,8 +306,10 @@ void getRow(){
   for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
     tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
     delay(15);                       // waits 15ms for the servo to reach the position
-   
-    RowReadings[tiltPos-75] = mlx.readObjectTempC() ;
+       
+    tempFloat = mlx.readObjectTempC() ;
+    tempFloat *= MultiplyFactor ;         
+    RowReadings[tiltPos-75] = int(tempFloat) ;
   }
 
 }
@@ -310,7 +319,7 @@ void getRow(){
 int sendRow(){
   while(!rf12_canSend())
     rf12_recvDone(); // wait for any receiving to finish
-  rf12_sendStart( 0, RowReadings, TILT_RES*sizeof(float) );    /*Send a row of readings data*/
+  rf12_sendStart( 0, RowReadings, TILT_RES*sizeof(int) );    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
@@ -319,5 +328,3 @@ int sendRow(){
 int canSendRow(){
 
 }
-
-
