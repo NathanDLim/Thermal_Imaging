@@ -5,7 +5,7 @@
  *  
  *  TEAM CHARLIE
 */
-
+#define RF69_COMPAT 1
 #include <Servo.h>
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
@@ -98,6 +98,7 @@ void loop() {
       break;
   }
 
+
   //check if the user wants to change the mode
   if(digitalRead(MODE_BUTTON_PIN))
     updateMode();
@@ -159,6 +160,7 @@ void autoLoop(){
   //     //sendPicture();
   //   }
   // }
+  Serial.println("AUTO LOOP Start");
   auto_service() ;
 }
 
@@ -207,21 +209,27 @@ int auto_service(){
   // count ++ ; 
 
     if ( CheckRowRequest_init() == 0 ){
-    delay(20) ;
+    delay(3000) ;
     
-    if ( sendRowResponse() )
+    if ( sendRowResponse() ){
+      Serial.println("ERROR 1");
       return -1 ;
+    }
     delay(20) ;
 
-    if ( rcv_RowRequest() )
+    if ( rcv_RowRequest() ){
+      Serial.println("ERROR 2");
       return -1 ;
+    }
     delay(20) ;
 
     getRow() ;
-    delay(100) ;
+    delay(1000) ;
 
-    if ( sendRow() )
+    if ( sendRow() ){
+      Serial.println("ERROR 3");
       return -1 ;
+    }
     delay(20) ;
     return 0 ;
   }
@@ -235,8 +243,9 @@ int CheckRowRequest_init(){
   //   return -1 ;
 
   /*Wait until receiving is complete*/
-  while ( !( rf12_recvDone() ) ) ;
-
+   Serial.println("Waiting for Transmission");
+  while ( !( rf12_recvDone() ) );
+  Serial.println("RECEIVE DONE");
   /*Check for valid length of the received packet*/
   if ( rf12_len != 1 )
     return -1 ;
@@ -263,8 +272,8 @@ int sendRowResponse(){
   //rf12_recvDone(); // wait for any receiving to finish
   
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
-
-  rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
+  Serial.println("sendRowResponse line A .......");
+  rf12_sendStart( 0, &code, sizeof (uint8_t));    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
@@ -276,7 +285,9 @@ int rcv_RowRequest(){
   panPos = PAN_DEFAULT - PAN_RES/2 ;
 
   /*Wait until receiving is complete*/
+  Serial.println("rcv_RowRequest waiting");
   while ( !( rf12_recvDone() ) ) ;
+  Serial.println("rcv_RowRequest received");
 
   /*Check for valid length of the received packet*/
   if ( rf12_len != 1 )
@@ -288,9 +299,11 @@ int rcv_RowRequest(){
     return -1 ;
 
   rowN = *( (uint8_t*) rf12_data ) ;
+  Serial.print("Received row: ");
+  Serial.println(rowN);
   panPos += rowN - 1;
   panServo.write(panPos);              // tell servo to go to position in variable 'pos'
-
+  return 0 ;
 }
 
 
