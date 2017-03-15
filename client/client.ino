@@ -4,6 +4,7 @@
  *  Automatic Mode will create an image using a 2D array of readings and send the data over RF
  *  
  *  TEAM CHARLIE - 3C
+ *  CLIENT CODE --- SUPPOSED TO CONNECT THIS NODE WITH DISPLAY COMPUTER
 */
 
 #include <Servo.h>
@@ -38,6 +39,8 @@
 #define REQUEST_INIT_CODE    0xFF 
 #define INIT_RESPONSE_CODE   0xCC
 
+//#define DEBUG
+
 //************************************************************************************************
 
 enum mode_t{ //This is the enum for keeping track of the current mode
@@ -64,12 +67,16 @@ void setup() {
 
   /*DEBUGGING ONLY, CALLING ONCE*/
   Serial.begin(9600);
-  generate_image() ;
   
+//  generate_image() ;
 
 }
 
 void loop() {
+  if(Serial.available() >0)
+    if(Serial.read() == '!')
+      generate_image() ;
+
   
 }
 
@@ -82,10 +89,18 @@ int sendRowRequest_init(){
   //rf12_recvDone(); // wait for any receiving to finish
   
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
+  
+#ifdef DEBUG
   Serial.print("checking cansend() ....  ....");
+#endif
+
 //  if ( !(rf12_canSend()) )
 //    return -1 ;
+
+#ifdef DEBUG
   Serial.print("Starting to send init ....");
+#endif
+
   rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
@@ -96,29 +111,48 @@ int CheckRowResponse(){
   /*Check for a received packet*/
   // if ( !rf12_recvDone() )
   //   return -1 ;
+  
+#ifdef DEBUG
   Serial.println("CheckRowResponse  line A");
+#endif
+
   /*Wait until receiving is complete*/
   while ( !( rf12_recvDone() ) ) {
-    Serial.println("waiting for Row response ....");
+    //Serial.println("waiting for Row response ....");
    } ;
+   
+#ifdef DEBUG
   Serial.println("CheckRowResponse  line B");
+#endif
+
   /*Check for valid length of the received packet*/
   if ( rf12_len != sizeof(uint8_t) ){
     Serial.print("received length = ");
     Serial.println(rf12_len);
     return -1 ;}
+
+#ifdef DEBUG
   Serial.println("CheckRowResponse  line C");
+#endif
   //Check for a valid CRC.
   //--It is a check for data integrity using some mathematical algorithms
   if ( rf12_crc != 0 )
     return -1 ;
+
+#ifdef DEBUG
   Serial.println("CheckRowResponse  line D");
+#endif
+
   /*Check if response is as expc*/
   if ( *( (uint8_t*) rf12_data ) == INIT_RESPONSE_CODE )
     return 0 ;
   else
     return -1 ;
+
+#ifdef DEBUG
   Serial.println("CheckRowResponse  line E");
+#endif
+
   return -1 ;
 }
 
@@ -137,23 +171,43 @@ int sendRowRequest(uint8_t RowNumber){
 
 /*Store the received Row data*/
 int rcvRow(){
+
+#ifdef DEBUG
   Serial.println("rcvRow  line A");
+#endif
+
   /*Check for a received packet*/
   while ( !rf12_recvDone() ) ;
     //return -1 ;
+
+#ifdef DEBUG
   Serial.println("rcvRow  line B");
+#endif
+
   /*Check for valid length of the received packet*/
   if ( !(rf12_len == TILT_RES*sizeof(int)) )
     return -1 ;
+
+#ifdef DEBUG
   Serial.println("rcvRow  line C");
+#endif
+
   /*Check for a valid CRC.
   --It is a check for data integrity using some mathematical algorithms*/
   if ( !(rf12_crc == 0) )
     return -1 ;
+
+#ifdef DEBUG
   Serial.println("rcvRow  line D");
+#endif
+  
   /*Save the received data into the row Array*/
   memcpy(RowReadings, (int*) rf12_data, TILT_RES*sizeof(int) ) ;
+
+#ifdef DEBUG
   Serial.println("rcvRow  line E");
+#endif
+
   return 0 ;
 }
 
@@ -161,14 +215,21 @@ int rcvRow(){
 /*Call this to generate the thermal image onto the target display*/
 int generate_image(){
 
+#ifdef DEBUG
   Serial.print("Starting generate_image () ...");
+#endif
+  
   int i ;
   if (PC_mode != AUTO_READY){
     Serial.print("error 1");
     return -1 ;}
 
-  for (i = 0 ; i <= 1 ; i++){
+  for (i = 0 ; i < TILT_RES ; i++){
+    
+#ifdef DEBUG
     Serial.print("iterating in generate_image  .... ");
+#endif
+
     if ( sendRowRequest_init() ){
       Serial.print("error 2");
       return -1 ;}
@@ -185,32 +246,25 @@ int generate_image(){
       Serial.print("error 5");
       return -1 ;}
     delay(20) ;
-    sendRow_COM() ;
+    sendRow_COM(i) ;
     delay(20) ;
   }
 }
 
 /*DEBUGGING ONLY *** Output Row Readings onto the serial COM port */
-void sendRow_COM(){
-  for(int i=0;i < TILT_RES;i++){
-    Serial.print("Printing RowReading ...");
+void sendRow_COM(int rowNum){
+    Serial.print("ROW");
+    Serial.print(rowNum);
+    Serial.print(":");
+    
+    Serial.print(RowReadings[0]);
+  for(int i=1;i < TILT_RES;i++){
+    Serial.print(",");
     Serial.print(RowReadings[i]);
-    Serial.print(" ");
   }
   Serial.println();
 
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
