@@ -100,8 +100,8 @@ void loop() {
 
 
   //check if the user wants to change the mode
-  if(digitalRead(MODE_BUTTON_PIN))
-    updateMode();
+//  if(digitalRead(MODE_BUTTON_PIN))
+//    updateMode();
     
   delay(15);
 
@@ -209,7 +209,7 @@ int auto_service(){
   // count ++ ; 
 
     if ( CheckRowRequest_init() == 0 ){
-    delay(3000) ;
+    delay(1800) ;
     
     if ( sendRowResponse() ){
       Serial.println("ERROR 1");
@@ -224,7 +224,7 @@ int auto_service(){
     delay(20) ;
 
     getRow() ;
-    delay(1000) ;
+    delay(500) ;
 
     if ( sendRow() ){
       Serial.println("ERROR 3");
@@ -313,27 +313,40 @@ void getRow(){
   float tempFloat ;
 
   /*Flush any previous values in the the Row array*/
-  for (i = 0 ; i < TILT_RES ; i++)
+  //for (i = 0 ; i < TILT_RES ; i++)
     //RowReadings = 0.0 ;
-
+  int count = 0;
   for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
     tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
     delay(15);                       // waits 15ms for the servo to reach the position
-       
+
+//    Serial.println("Reading temp");
     tempFloat = mlx.readObjectTempC() ;
+//    Serial.print("Temp = ");
+//    Serial.println(tempFloat);
     tempFloat *= MultiplyFactor ;         
-    RowReadings[tiltPos-75] = int(tempFloat) ;
+    RowReadings[count ++] = int(tempFloat) ;
+    
   }
 
 }
 
+
 /*-Sends a row of IR sensor data to the client.
 ---Should be called after getRow() has finished execution. */
 int sendRow(){
+  Serial.println("Send row entered");
+//  for (int i = 0; i< TILT_RES; i++){
+//    Serial.print(" ");
+//    Serial.print(RowReadings[i]);
+//  }
+//  int fake[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 ,18,19,20,21,22,23,24,25,26,27,28,29};
   while(!rf12_canSend())
     rf12_recvDone(); // wait for any receiving to finish
   rf12_sendStart( 0, RowReadings, TILT_RES*sizeof(int) );    /*Send a row of readings data*/
+//  rf12_sendStart( 0, fake, TILT_RES*sizeof(int) );
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+  Serial.println("Exit send Row");
   return 0 ;
 }
 
