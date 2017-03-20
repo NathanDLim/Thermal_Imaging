@@ -13,34 +13,45 @@
 
 //**********************************************************************************************
 
-#define PAN_DEFAULT 50 //These are the angles that the pan and tilt motors will default to
-#define TILT_DEFAULT 80
+#define PAN_DEFAULT       50 //These are the angles that the pan and tilt motors will default to
+#define TILT_DEFAULT      80
 
-#define PAN_RES 30 //These are the number of points taken in automatic mode, and the 2D array size.
-#define TILT_RES 30
+#define PAN_RES           30 //These are the number of points taken in automatic mode, and the 2D array size.
+#define TILT_RES          30
 
-#define JOY_PAN_PIN A1 //These are the analog pin numbers for the joystick potentiometers. 
-#define JOY_TILT_PIN A0
-#define JOY_BUTTON_PIN 7 // digital pin for the joystick button
+#define JOY_PAN_PIN       A1 //These are the analog pin numbers for the joystick potentiometers. 
+#define JOY_TILT_PIN      A0
+#define JOY_BUTTON_PIN     7 // digital pin for the joystick button
+#define PAN_PWM_PIN        4 /* Shamoon says, "Theres no PWM on PIN 4 !!! " */
+#define TILT_PWM_PIN       5
 
-#define MANUAL_SPEED 4 //sets how fast the joystick changes the servos angle
+#define MANUAL_SPEED       4 //sets how fast the joystick changes the servos angle
 
-#define AUTO_MODE_PIN 8 //digital pins for displaying the current mode of operation
-#define MANUAL_MODE_PIN 9
-#define OTHER_MODE_PIN 10 //to be renamed if we get to it
+// #define AUTO_MODE_PIN      8 //digital pins for displaying the current mode of operation
+// #define MANUAL_MODE_PIN    9  /*MIGHT NOT WORK FOR JEENODE, REVISE THESE TWO*/
 
-#define MODE_BUTTON_PIN 11 // controls the switching of modes
+#define AUTO_MODE_PIN      17
+#define MANUAL_MODE_PIN     7  
 
-#define NODE    2
-#define GROUP   212 
 
-#define REQUEST_INIT_CODE    0xFF 
-#define INIT_RESPONSE_CODE   0xCC
+#define OTHER_MODE_PIN    10 //to be renamed if we get to it
+
+#define MODE_BUTTON_PIN   11 // controls the switching of modes
+
+#define NODE               2 
+#define GROUP            212 
+
+#define REQUEST_INIT_CODE     0xFF 
+#define INIT_RESPONSE_CODE    0xCC
 
 #define MultiplyFactor      10.000        /*Increases the decimal of the
                                           temperature float value. This allows sending
                                           the temperature values as int while keeping decimal places
-                                          e.g. 45.93 degrees celcies sent as 4593 */ 
+                                          e.g. 45.93 degrees celcius sent as 4593 if factor is 10.00*/ 
+
+#define PRE_ROWSEND_DELAY      500        /*Waiting time in ms, before calling the SendRow() functions*/
+#define PRE_RRESPONSE_DELAY    1800       /*Waiting time in ms, before calling the sendRowResponse() function*/                               
+
 //************************************************************************************************
 
 enum mode_t{ //This is the enum for keeping track of the current mode
@@ -64,8 +75,10 @@ mode_t mode;
 bool changeMode; // boolean for when the mode should be changed
 
 void setup() {
-  panServo.attach(4);  // attaches the servo on pin 9 to the servo object
-  tiltServo.attach(5);
+  // panServo.attach(4);  // attaches the servo on pin 4 to the servo object
+  // tiltServo.attach(5);
+  panServo.attach(PAN_PWM_PIN);  // attaches the servo on pin 4 to the servo object
+  tiltServo.attach(TILT_PWM_PIN);
   mlx.begin();  //start the mlx IR sensor using the I2C pins
 
   //Set the pin modes
@@ -78,7 +91,7 @@ void setup() {
   tiltPos = TILT_DEFAULT;
   mode = mode_t::AUTO;
 
-  rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF
+  rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF module
 
   
   Serial.begin(9600);
@@ -209,8 +222,9 @@ int auto_service(){
   // count ++ ; 
 
     if ( CheckRowRequest_init() == 0 ){
-    delay(1800) ;
-    
+    // delay(1800) ;
+    delay(PRE_RRESPONSE_DELAY) ;
+
     if ( sendRowResponse() ){
       Serial.println("ERROR 1");
       return -1 ;
@@ -224,7 +238,9 @@ int auto_service(){
     delay(20) ;
 
     getRow() ;
-    delay(500) ;
+    // delay(500) ;
+    delay(PRE_ROWSEND_DELAY) ;
+
 
     if ( sendRow() ){
       Serial.println("ERROR 3");
@@ -255,7 +271,7 @@ int CheckRowRequest_init(){
   if ( rf12_crc != 0 )
     return -1 ;
 
-  /*Check if response is as expc*/
+  /*Check if request is as expc*/
   if ( *( (uint8_t*) rf12_data ) == REQUEST_INIT_CODE )
     return 0 ;
   else
@@ -272,7 +288,7 @@ int sendRowResponse(){
   //rf12_recvDone(); // wait for any receiving to finish
   
   while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
-  Serial.println("sendRowResponse line A .......");
+  Serial.println("sendRowResponse line A .......");     /*DEBUGGING ONLY !! */
   rf12_sendStart( 0, &code, sizeof (uint8_t));    /*Send a row of readings data*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
