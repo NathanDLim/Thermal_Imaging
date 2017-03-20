@@ -19,19 +19,20 @@
 #define PAN_RES           30 //These are the number of points taken in automatic mode, and the 2D array size.
 #define TILT_RES          30
 
-#define JOY_PAN_PIN       A1 //These are the analog pin numbers for the joystick potentiometers. 
-#define JOY_TILT_PIN      A0
+#define JOY_PAN_PIN       A1 //=Pin 15. These are the analog pin numbers for the joystick potentiometers. 
+#define JOY_TILT_PIN      A0 //=Pin 14
 #define JOY_BUTTON_PIN     7 // digital pin for the joystick button
 #define PAN_PWM_PIN        4 /* Shamoon says, "Theres no PWM on PIN 4 !!! " */
 #define TILT_PWM_PIN       5
+#define AUTO_MODE_PIN      17
+#define MANUAL_MODE_PIN    7  
 
 #define MANUAL_SPEED       4 //sets how fast the joystick changes the servos angle
 
 // #define AUTO_MODE_PIN      8 //digital pins for displaying the current mode of operation
 // #define MANUAL_MODE_PIN    9  /*MIGHT NOT WORK FOR JEENODE, REVISE THESE TWO*/
 
-#define AUTO_MODE_PIN      17
-#define MANUAL_MODE_PIN     7  
+
 
 
 #define OTHER_MODE_PIN    10 //to be renamed if we get to it
