@@ -1,0 +1,2 @@
+Log(0/1),TimeDelay(s),Threshold(Celcius)
+0,20,30
