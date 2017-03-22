@@ -36,8 +36,12 @@
 #define NODE    3
 #define GROUP   212
 
+#define PC_AUTO_INIT         0xAA
+#define PC_MANUAL_INIT       0xBB 
 #define REQUEST_INIT_CODE    0xFF 
 #define INIT_RESPONSE_CODE   0xCC
+#define MANUAL_CODE          0xDD
+#define CONTAINS_SINGLE_CODE 0xAF
 
 //#define DEBUG
 
@@ -59,6 +63,7 @@ PC_mode_t PC_mode ;
 
 // float RowReadings[TILT_RES] ;
 int RowReadings[TILT_RES] ;
+int SingleReading ;
 
 
 void setup() {
@@ -73,10 +78,15 @@ void setup() {
 }
 
 void loop() {
-  if(Serial.available() >0)
-    if(Serial.read() == '!')
-      generate_image() ;
+    if (! (Serial.available() >0) ) return ;
 
+    int read_value = Serial.read() ;
+    if( read_value == PC_AUTO_INIT ){
+      generate_image() ;
+    } else if ( read_value == PC_MANUAL_INIT ){
+      // CODE HERE
+      generate_single() ;
+    }
   
 }
 
@@ -222,7 +232,8 @@ int generate_image(){
   int i ;
   if (PC_mode != AUTO_READY){
     Serial.print("error 1");
-    return -1 ;}
+    return -1 ;
+  }
 
   for (i = 0 ; i < TILT_RES ; i++){
     
@@ -266,5 +277,104 @@ void sendRow_COM(int rowNum){
 
 }
 
+int generate_single()
+{
+
+#ifdef DEBUG
+  Serial.print("Starting generate_single ...");
+#endif
+
+  if ( sendSingleRequest() ){
+    Serial.print("error 22");
+    return -1 ;}
+  delay (20) ;
+  if ( rcvSingleResponse() ){
+    Serial.print("error 44");
+    return -1 ;}
+  delay(20) ;
+  sendSingle_COM() ;
+  delay(20) ;
+
+  return 0 ;
+}
+
+int sendSingleRequest() {
+  uint8_t code ;
+  code = MANUAL_CODE ;
+  //if ( !rf12_canSend() )
+    //return -1 ;
+  //rf12_recvDone(); // wait for any receiving to finish
+  
+  while(!rf12_canSend()) rf12_recvDone(); // wait for any receiving to finish 
+  
+#ifdef DEBUG
+  Serial.print("checking cansend() ....  ....");
+#endif
+
+//  if ( !(rf12_canSend()) )
+//    return -1 ;
+
+#ifdef DEBUG
+  Serial.print("Starting to send singleRequest ....");
+#endif
+
+  rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
+  rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+  return 0 ;
+}
+
+int rcvSingleResponse() {
 
 
+  #ifdef DEBUG
+  Serial.println("rcvSingleResponse  line A");
+#endif
+
+  /*Wait until receiving is complete*/
+  while ( !( rf12_recvDone() ) ) {
+    //Serial.println("waiting for Row response ....");
+   } ;
+   
+#ifdef DEBUG
+  Serial.println("rcvSingleResponse  line B");
+#endif
+
+  /*Check for valid length of the received packet*/
+  if ( rf12_len != sizeof(int) ){
+    Serial.print("received length = ");
+    Serial.println(rf12_len);
+    return -1 ;}
+
+#ifdef DEBUG
+  Serial.println("rcvSingleResponse  line C");
+#endif
+  //Check for a valid CRC.
+  //--It is a check for data integrity using some mathematical algorithms
+  if ( rf12_crc != 0 )
+    return -1 ;
+
+#ifdef DEBUG
+  Serial.println("rcvSingleResponse  line D");
+#endif
+
+  /*Check if response is as expc*/
+  if ( rf12_hdr == CONTAINS_SINGLE_CODE ){
+    memcpy(&SingleReading, (int*) rf12_data, sizeof(int) ) ;
+    return 0 ;
+  }
+  else
+    return -1 ;
+
+#ifdef DEBUG
+  Serial.println("rcvSingleResponse  line E");
+#endif
+
+  return -1 ;
+
+}
+
+void sendSingle_COM(){
+
+  Serial.print("Sending Single Reading");
+  Serial.print(SingleReading);
+}
