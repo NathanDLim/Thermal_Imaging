@@ -21,8 +21,8 @@
 
 #define JOY_PAN_PIN       A1 //=Pin 15. These are the analog pin numbers for the joystick potentiometers. 
 #define JOY_TILT_PIN      A0 //=Pin 14
-#define JOY_BUTTON_PIN     7 // digital pin for the joystick button
-#define PAN_PWM_PIN        4 /* Shamoon says, "Theres no PWM on PIN 4 !!! " */
+#define JOY_BUTTON_PIN     3 // digital pin for the joystick button, used as an interrupt.
+#define PAN_PWM_PIN        6 /* Shamoon says, "Theres no PWM on PIN 4 !!! " */
 #define TILT_PWM_PIN       5
 #define AUTO_MODE_PIN      17
 #define MANUAL_MODE_PIN    7  
@@ -31,9 +31,6 @@
 
 // #define AUTO_MODE_PIN      8 //digital pins for displaying the current mode of operation
 // #define MANUAL_MODE_PIN    9  /*MIGHT NOT WORK FOR JEENODE, REVISE THESE TWO*/
-
-
-
 
 #define OTHER_MODE_PIN    10 //to be renamed if we get to it
 
@@ -44,6 +41,8 @@
 
 #define REQUEST_INIT_CODE     0xFF 
 #define INIT_RESPONSE_CODE    0xCC
+#define MANUAL_CODE           0xDD
+#define CONTAINS_SINGLE_CODE  0xAF
 
 #define MultiplyFactor      10.000        /*Increases the decimal of the
                                           temperature float value. This allows sending
@@ -56,8 +55,9 @@
 //************************************************************************************************
 
 enum mode_t{ //This is the enum for keeping track of the current mode
-  AUTO,
-  MANUAL
+  AUTO_READY,
+  AUTO_BUSY,
+  MANUAL,
 };
 
 Servo panServo;  // create servo objects to control the servos
@@ -90,7 +90,7 @@ void setup() {
 
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
-  mode = mode_t::AUTO;
+  mode = mode_t::AUTO_READY;
 
   rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF module
 
@@ -102,7 +102,8 @@ void loop() {
   
   //runs the loop corresponding to the current mode
   switch(mode){
-    case AUTO: 
+    case AUTO_READY:
+    case AUTO_BUSY: 
       autoLoop();
       break;
     case MANUAL:
@@ -125,26 +126,26 @@ void loop() {
  * This function checks if the button to change modes was pressed and updates the LEDs
  * The mode cycle is as follows: AUTO -> MANUAL -> AUTO
  */
-void updateMode(){
-  //check if the mode button was pressed, and update the mode as well as the corresponding LED
-  switch(mode){
-      case AUTO:
-        mode = mode_t::MANUAL;
-        digitalWrite(AUTO_MODE_PIN,0);
-        digitalWrite(MANUAL_MODE_PIN,1);
-        digitalWrite(OTHER_MODE_PIN,0);
-        break;
-      case MANUAL:
-        if(changeMode)
-          mode = mode_t::AUTO;
-        digitalWrite(AUTO_MODE_PIN,1);
-        digitalWrite(MANUAL_MODE_PIN,0);
-        digitalWrite(OTHER_MODE_PIN,0);
-        break;
-      default:
-        mode = mode_t::AUTO;
-    }
-}
+// void updateMode(){
+//   //check if the mode button was pressed, and update the mode as well as the corresponding LED
+//   switch(mode){
+//       case AUTO:
+//         mode = mode_t::MANUAL;
+//         digitalWrite(AUTO_MODE_PIN,0);
+//         digitalWrite(MANUAL_MODE_PIN,1);
+//         digitalWrite(OTHER_MODE_PIN,0);
+//         break;
+//       case MANUAL:
+//         if(changeMode)
+//           mode = mode_t::AUTO;
+//         digitalWrite(AUTO_MODE_PIN,1);
+//         digitalWrite(MANUAL_MODE_PIN,0);
+//         digitalWrite(OTHER_MODE_PIN,0);
+//         break;
+//       default:
+//         mode = mode_t::AUTO;
+//     }
+// }
 
 /*
  * This function controls all that happens in manual mode
@@ -220,20 +221,37 @@ void autoLoop(){
 int auto_service(){
   // static int count ;
 
-  // count ++ ; 
+  // count ++ ;
+    mode_t prev_mode = mode ;
+    if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
 
     if ( CheckRowRequest_init() == 0 ){
     // delay(1800) ;
     delay(PRE_RRESPONSE_DELAY) ;
 
-    if ( sendRowResponse() ){
-      Serial.println("ERROR 1");
-      return -1 ;
-    }
-    delay(20) ;
+    if (prev_mode == AUTO_READY){
+      if ( sendRowResponse(INIT_RESPONSE_CODE) ){
+        Serial.println("ERROR 1");
+        if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+        return -1 ;
+      }
+      delay(20) ;
 
+    } else {   /*Deny Initialization request*/
+        if ( sendRowResponse(0) ){
+          Serial.println("ERROR 63");
+          if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+          return -1 ;
+        }
+        Serial.println("Initialization request denied, not in AUTO_READY mode");
+        delay(20) ;
+        if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+        return -1 ;
+    }
+  
     if ( rcv_RowRequest() ){
       Serial.println("ERROR 2");
+      if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
       return -1 ;
     }
     delay(20) ;
@@ -245,12 +263,15 @@ int auto_service(){
 
     if ( sendRow() ){
       Serial.println("ERROR 3");
+      if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
       return -1 ;
     }
     delay(20) ;
+    if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
     return 0 ;
   }
 
+  if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
   return -1 ;
 }
 
@@ -281,9 +302,9 @@ int CheckRowRequest_init(){
   return -1 ;
 }
 
-int sendRowResponse(){
-  uint8_t code ;
-  code = INIT_RESPONSE_CODE ;
+int sendRowResponse(uint8_t code){
+  //uint8_t code ;
+  //code = INIT_RESPONSE_CODE ;
   //if ( !rf12_canSend() )
     //return -1 ;
   //rf12_recvDone(); // wait for any receiving to finish
