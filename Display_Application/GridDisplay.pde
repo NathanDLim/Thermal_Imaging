@@ -1,9 +1,12 @@
-final int gridWidth = 500;
-final int gridHeight = 500;
-final float squareSize = 500/30.0; //this controls the resolution of the image
+
 
 
 class GridDisplay{
+  final int gridWidth = 500;
+  final int gridHeight = 500;
+  float squareSize; //this controls the resolution of the image
+  
+  
   float[][] array;
   int x,y;
   float max,  min;
@@ -14,11 +17,12 @@ class GridDisplay{
   //color yellow = color(255,255,0); //0.75
   //color red = color(255,0,0); //1
   
-  public GridDisplay(int x, int y){
+  public GridDisplay(int x, int y, int res){
+    squareSize = gridWidth/float(res);
     array = new float[floor(gridWidth/squareSize)][floor(gridHeight/squareSize)];
     this.x=x;
     this.y=y;
-    max = 60;
+    max = 58;
     min = 0;
     makeGrey();
   }
@@ -89,6 +93,10 @@ class GridDisplay{
     text(String.format("%.1f",max), x+ gridWidth + 75,y + gridHeight*0.75 - 19*squareSize);
     text(String.format("%.1f",(max-min)/2), x+ gridWidth + 75,y + gridHeight*0.75 - 9*squareSize);
     text(String.format("%.1f",min), x+ gridWidth + 75,y + gridHeight*0.75 + squareSize);
+  }
+  
+  float[][] getGrid(){
+    return array;
   }
   
 }
