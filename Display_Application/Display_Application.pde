@@ -1,6 +1,12 @@
+//for serial communcation
 import processing.serial.*;
+
+//for email notification. Must install the Temboo library
+import com.temboo.core.*;
+import com.temboo.Library.Google.Gmail.*;
+
 import java.net.URL;
-import java.util.GregorianCalendar;
+import java.util.GregorianCalendar; //for timestamp
 import java.util.Calendar;
 
 thermal_view view;
@@ -172,6 +178,26 @@ void mouseReleased(){
 
 }
 
+//Function that sends the email out
+void runSendEmailChoreo() {
+  // Create the Choreo object using your Temboo session
+  SendEmail sendEmailChoreo = new SendEmail(session);
+
+  // Set inputs
+  sendEmailChoreo.setFromAddress("thermalimagingresponse@gmail.com");
+  sendEmailChoreo.setUsername("thermalimagingresponse@gmail.com");
+  sendEmailChoreo.setSubject("test email");
+  sendEmailChoreo.setToAddress("nathandlim@gmail.com");
+  sendEmailChoreo.setMessageBody("Your thermal imaging device detected temperatures about the threshold value.");
+  sendEmailChoreo.setPassword("gdmw wymx aynd omca");
+
+  // Run the Choreo and store the results
+  SendEmailResultSet sendEmailResults = sendEmailChoreo.run();
+  
+  // Print results
+  println(sendEmailResults.getSuccess());
+
+}
 
 //********************************************************************************************************************************/
 
