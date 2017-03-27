@@ -19,22 +19,23 @@
 #define PAN_RES           30 //These are the number of points taken in automatic mode, and the 2D array size.
 #define TILT_RES          30
 
-#define JOY_PAN_PIN       A1 //=Pin 15. These are the analog pin numbers for the joystick potentiometers. 
-#define JOY_TILT_PIN      A0 //=Pin 14
-#define JOY_BUTTON_PIN     3 // digital pin for the joystick button, used as an interrupt.
-#define PAN_PWM_PIN        6 /* Shamoon says, "Theres no PWM on PIN 4 !!! " */
-#define TILT_PWM_PIN       5
-#define AUTO_MODE_PIN      17
-#define MANUAL_MODE_PIN    7  
+#define JOY_PAN_PIN                   A1 //=Pin 15. These are the analog pin numbers for the joystick potentiometers. 
+#define JOY_TILT_PIN                  A0 //=Pin 14
+#define JOY_BUTTON_IRQ_PIN             3 // digital pin for the joystick button, used as an interrupt.
+#define PAN_PWM_PIN                    6 /* Shamoon says, "Theres no PWM on PIN 4 !!! " */
+#define TILT_PWM_PIN                   5
+#define AUTO_READY_MODE_PIN_LED       17
+#define AUTO_BUSY_MODE_PIN_LED         7
+#define MANUAL_MODE_PIN_LED           16  
 
 #define MANUAL_SPEED       4 //sets how fast the joystick changes the servos angle
 
 // #define AUTO_MODE_PIN      8 //digital pins for displaying the current mode of operation
 // #define MANUAL_MODE_PIN    9  /*MIGHT NOT WORK FOR JEENODE, REVISE THESE TWO*/
 
-#define OTHER_MODE_PIN    10 //to be renamed if we get to it
+//#define OTHER_MODE_PIN    10 //to be renamed if we get to it
 
-#define MODE_BUTTON_PIN   11 // controls the switching of modes
+//#define MODE_BUTTON_PIN   11 // controls the switching of modes
 
 #define NODE               2 
 #define GROUP            212 
@@ -50,7 +51,8 @@
                                           e.g. 45.93 degrees celcius sent as 4593 if factor is 10.00*/ 
 
 #define PRE_ROWSEND_DELAY      500        /*Waiting time in ms, before calling the SendRow() functions*/
-#define PRE_RRESPONSE_DELAY    1800       /*Waiting time in ms, before calling the sendRowResponse() function*/                               
+#define PRE_RRESPONSE_DELAY    1800       /*Waiting time in ms, before calling the sendRowResponse() function*/
+#define IRQ_DELAY              500                               
 
 //************************************************************************************************
 
@@ -68,6 +70,7 @@ Adafruit_MLX90614 mlx = Adafruit_MLX90614(); // create the temp sensor object
 //byte readings[PAN_RES][TILT_RES]; //The array of readings for the automatic picture mode
 //float RowReadings[TILT_RES] ;
 int RowReadings[TILT_RES] ;
+int SingleReading ;
 
 volatile int panPos;
 volatile int tiltPos;
@@ -83,10 +86,12 @@ void setup() {
   mlx.begin();  //start the mlx IR sensor using the I2C pins
 
   //Set the pin modes
-  pinMode(JOY_BUTTON_PIN, INPUT);
-  pinMode(MODE_BUTTON_PIN, INPUT);
-  pinMode(AUTO_MODE_PIN, OUTPUT);
-  pinMode(MANUAL_MODE_PIN, OUTPUT);
+  // pinMode(JOY_BUTTON_PIN, INPUT);
+  // pinMode(MODE_BUTTON_PIN, INPUT);
+  pinMode(AUTO_READY_MODE_PIN_LED, OUTPUT);
+  pinMode(AUTO_BUSY_MODE_PIN_LED, OUTPUT);
+  pinMode(MANUAL_MODE_PIN_LED, OUTPUT);
+  attachInterrupt(digitalPinToInterrupt(JOY_BUTTON_IRQ_PIN), joy_ISR, FALLING); /*Confirm that the joystick button is falling edge*/
 
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
@@ -94,7 +99,7 @@ void setup() {
 
   rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF module
 
-  
+  update_modeLED() ;
   Serial.begin(9600);
 }
 
@@ -102,12 +107,12 @@ void loop() {
   
   //runs the loop corresponding to the current mode
   switch(mode){
-    case AUTO_READY:
-    case AUTO_BUSY: 
-      autoLoop();
+    case AUTO_BUSY: /*unconditionally runs the code of the next case*/
+    case AUTO_READY: 
+      auto_service();
       break;
     case MANUAL:
-      manualLoop();
+      manual_service();
       break;
     default:
       break;
@@ -118,7 +123,7 @@ void loop() {
 //  if(digitalRead(MODE_BUTTON_PIN))
 //    updateMode();
     
-  delay(15);
+  //delay(15);
 
 }
 
@@ -152,32 +157,36 @@ void loop() {
  * 
  * It samples the potentiometers and sets the motors to the corresponding angle
  */
-void manualLoop(){
-  //read the joystick potentiometers and map the analog readings (0-1023) to the servo angles (1-179). We exclude angle 0 and 180 because they have some artifacts.
-  int p = analogRead(JOY_PAN_PIN)*178/1023 + 1;
-  int t = analogRead(JOY_TILT_PIN)*178/1023 + 1;
+// void manualLoop(){
+//   //read the joystick potentiometers and map the analog readings (0-1023) to the servo angles (1-179). We exclude angle 0 and 180 because they have some artifacts.
+//   // int p = analogRead(JOY_PAN_PIN)*178/1023 + 1;
+//   // int t = analogRead(JOY_TILT_PIN)*178/1023 + 1;
 
-  p = p>179 || p < 1? 90:p;
-  t = t>179 || t < 1? 90:t;
+//   // p = p>179 || p < 1? 90:p;
+//   // t = t>179 || t < 1? 90:t;
   
-  panServo.write(p);
-  tiltServo.write(t);
-  delay(15); //wait for servos to respond
-}
+//   // panServo.write(p);
+//   // tiltServo.write(t);
+//   // delay(15); //wait for servos to respond
+
+//   Serial.println("MANUAL service start LOOP Start");
+//   manual_service() ;
+
+// }
 
 /*
  * This function controls all that happens in automatic mode
  */
-void autoLoop(){
-  // if (Serial.available() > 0){
-  //   if(Serial.read() == '!'){
-  //     makePicture();
-  //     //sendPicture();
-  //   }
-  // }
-  Serial.println("AUTO LOOP Start");
-  auto_service() ;
-}
+// void autoLoop(){
+//   // if (Serial.available() > 0){
+//   //   if(Serial.read() == '!'){
+//   //     makePicture();
+//   //     //sendPicture();
+//   //   }
+//   // }
+//   Serial.println("AUTO Service Start");
+//   auto_service() ;
+// }
 
 /*
  * This function will send the 2D array over RF
@@ -219,13 +228,17 @@ void autoLoop(){
 
 /*Waits for Row Request and sends row values if request is received. */
 int auto_service(){
+  //Serial.println("AUTO Service Start..");
+
   // static int count ;
 
   // count ++ ;
-    mode_t prev_mode = mode ;
-    if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
+  mode_t prev_mode = mode ;
+    
+  if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
+  update_modeLED();
 
-    if ( CheckRowRequest_init() == 0 ){
+  if ( CheckRowRequest_init() == 0 ){
     // delay(1800) ;
     delay(PRE_RRESPONSE_DELAY) ;
 
@@ -233,6 +246,7 @@ int auto_service(){
       if ( sendRowResponse(INIT_RESPONSE_CODE) ){
         Serial.println("ERROR 1");
         if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+        update_modeLED();
         return -1 ;
       }
       delay(20) ;
@@ -241,17 +255,20 @@ int auto_service(){
         if ( sendRowResponse(0) ){
           Serial.println("ERROR 63");
           if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+          update_modeLED();
           return -1 ;
         }
         Serial.println("Initialization request denied, not in AUTO_READY mode");
         delay(20) ;
         if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+        update_modeLED();
         return -1 ;
     }
   
     if ( rcv_RowRequest() ){
       Serial.println("ERROR 2");
       if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+      update_modeLED();
       return -1 ;
     }
     delay(20) ;
@@ -260,7 +277,6 @@ int auto_service(){
     // delay(500) ;
     delay(PRE_ROWSEND_DELAY) ;
 
-
     if ( sendRow() ){
       Serial.println("ERROR 3");
       if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
@@ -268,13 +284,23 @@ int auto_service(){
     }
     delay(20) ;
     if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+    update_modeLED() ;
     return 0 ;
+
+  } else if ( CheckRowRequest_init() == -2 ) {  /*Unexpected Request Received*/
+    delay(PRE_RRESPONSE_DELAY) ;
+    sendRowResponse(0) ;
+    Serial.println("Initialization denied, 88");
+    if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+    update_modeLED() ;
+    return -1;
   }
 
   if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
   return -1 ;
 }
 
+/* DESIGNED AS NON BLOCKING RECEIVE */
 int CheckRowRequest_init(){
   /*Check for a received packet*/
   // if ( !rf12_recvDone() )
@@ -282,22 +308,25 @@ int CheckRowRequest_init(){
 
   /*Wait until receiving is complete*/
    Serial.println("Waiting for Transmission");
-  while ( !( rf12_recvDone() ) );
+  //while ( !( rf12_recvDone() ) );  /*--BLOCKING RECEIVE--*/
+
+  if ( !( rf12_recvDone() ) ) return -1 ;   /*Implements Non-Blocking Receive*/
+   
   Serial.println("RECEIVE DONE");
   /*Check for valid length of the received packet*/
   if ( rf12_len != 1 )
-    return -1 ;
+    return -2 ;
 
   //Check for a valid CRC.
   //--It is a check for data integrity using some mathematical algorithms
   if ( rf12_crc != 0 )
-    return -1 ;
+    return -2 ;
 
   /*Check if request is as expc*/
   if ( *( (uint8_t*) rf12_data ) == REQUEST_INIT_CODE )
     return 0 ;
   else
-    return -1 ;
+    return -2 ;
 
   return -1 ;
 }
@@ -388,7 +417,135 @@ int sendRow(){
   return 0 ;
 }
 
-/*might not be needed*/
-int canSendRow(){
+
+int manual_service(){
+  int rv ;  /*Return value*/
+
+  if (mode != MANUAL){
+    Serial.println("Error! manual_service() called in a wrong mode");
+    return -1 ;
+  }
+
+  /*read the joystick potentiometers and map the analog readings (0-1023) to the servo angles (1-179). We exclude angle 0 and 180 because they have some artifacts.*/
+  int p = analogRead(JOY_PAN_PIN)*178/1023 + 1;
+  int t = analogRead(JOY_TILT_PIN)*178/1023 + 1;
+
+  p = p>179 || p < 1? 90:p;
+  t = t>179 || t < 1? 90:t;
+  
+  panServo.write(p);
+  tiltServo.write(t);
+  delay(15); //wait for servos to respond
+
+  rv = rcv_singleRequest() ;
+
+  if ( rv == 0 ) {
+    delay (PRE_RRESPONSE_DELAY);
+    get_singleReading() ;
+    send_singleResponse (CONTAINS_SINGLE_CODE) ;
+  } else if ( rv == -2 )  {
+    delay (PRE_RRESPONSE_DELAY);
+    send_singleResponse (0x99) ;
+  } else {
+    return -1 ;
+  }
+
+  return rv ;
+}
+
+/* DESIGENED AS NON_BLOCKING RECEIVE */
+int rcv_singleRequest(){
+
+  Serial.println("Waiting for Reception...rcvSingleRequest()");
+  // while ( !( rf12_recvDone() ) );
+  if ( !( rf12_recvDone() ) ) return -1 ;  /*Implements Non-Blocking Receive*/
+
+  Serial.println("RECEIVE DONE...rcvSingleRequest() ");
+  /*Check for valid length of the received packet*/
+  if ( rf12_len != 1 )
+    return -2 ;
+
+  //Check for a valid CRC.
+  //--It is a check for data integrity using some mathematical algorithms
+  if ( rf12_crc != 0 ){
+    Serial.println("BAD CRC !!! in rcv_singleRequest()");
+    return -2 ;
+  }
+    
+
+  /*Check if request is as expc*/
+  if ( *( (uint8_t*) rf12_data ) == MANUAL_CODE )
+    return 0 ;
+  else
+    return -2 ;
+
+  return -1 ;
+}
+
+void get_singleReading(){
+  float tempFloat ;
+
+  tempFloat = mlx.readObjectTempC() ;
+  tempFloat *= MultiplyFactor ;         
+  SingleReading = int(tempFloat) ;
 
 }
+
+int send_singleResponse(uint8_t hdr_code){
+
+  Serial.println("Send row entered");
+
+  while(!rf12_canSend())
+    rf12_recvDone(); // wait for any receiving to finish
+  rf12_sendStart( hdr_code, &SingleReading, sizeof(int) );    /*Send a single temperature value*/
+  rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+  Serial.println("Returning from send_singleResponse()");
+  return 0 ;
+}
+
+void update_modeLED(){
+  switch (mode){
+    case AUTO_READY:
+      digitalWrite(AUTO_READY_MODE_PIN_LED, HIGH) ;
+      digitalWrite(AUTO_BUSY_MODE_PIN_LED, LOW) ;
+      digitalWrite(MANUAL_MODE_PIN_LED, LOW) ;
+      break ;
+    case AUTO_BUSY:
+      digitalWrite(AUTO_READY_MODE_PIN_LED, LOW) ;
+      digitalWrite(AUTO_BUSY_MODE_PIN_LED, HIGH) ;
+      digitalWrite(MANUAL_MODE_PIN_LED, LOW) ;
+      break ;
+    case MANUAL:
+      digitalWrite(AUTO_READY_MODE_PIN_LED, LOW) ;
+      digitalWrite(AUTO_BUSY_MODE_PIN_LED, LOW) ;
+      digitalWrite(MANUAL_MODE_PIN_LED, HIGH) ;
+      break ;
+    default:
+      digitalWrite(AUTO_READY_MODE_PIN_LED, HIGH) ;
+      digitalWrite(AUTO_BUSY_MODE_PIN_LED, HIGH) ;
+      digitalWrite(MANUAL_MODE_PIN_LED, HIGH) ;
+      break ;
+  }
+}
+
+
+/*Interrupt Service Routine triggered by the Joystick button*/
+void joy_ISR(){
+  switch (mode){
+    case AUTO_READY:
+      mode = MANUAL ;
+      break ;
+    case AUTO_BUSY:
+      return ; /*Busy: Do not Disturb*/
+      break ;
+    case MANUAL:
+      mode = AUTO_READY ;
+      break ;
+    default:
+      
+      break ;
+  }
+  update_modeLED() ;
+  delay (IRQ_DELAY) ;
+}
+
