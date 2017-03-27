@@ -36,6 +36,7 @@
 #define NODE    3
 #define GROUP   212
 
+/* Acknowledgment Codes */
 #define PC_AUTO_INIT         0xAA
 #define PC_MANUAL_INIT       0xBB 
 #define REQUEST_INIT_CODE    0xFF 
@@ -318,7 +319,7 @@ int sendSingleRequest() {
   Serial.print("Starting to send singleRequest ....");
 #endif
 
-  rf12_sendStart( 0, &code, 1);    /*Send a row of readings data*/
+  rf12_sendStart( 0, &code, 1);    /*Send a request for a single reading*/
   rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   return 0 ;
 }
