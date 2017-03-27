@@ -76,6 +76,8 @@ class GridDisplay{
   }
   
   void draw(){
+    fill(0xe0);
+    rect(x-5,y-5,gridHeight+10,gridWidth+10);
     noStroke();
     for(int i = 0;i<array.length;i++){
       for(int j = 0;j<array[i].length;j++){
@@ -89,7 +91,7 @@ class GridDisplay{
        rect(x+ gridWidth + 40,y + gridHeight*0.75 - i*squareSize, squareSize,squareSize);
     }
     
-    fill(0);
+    fill(0xff);
     text(String.format("%.1f",max), x+ gridWidth + 75,y + gridHeight*0.75 - 19*squareSize);
     text(String.format("%.1f",(max-min)/2), x+ gridWidth + 75,y + gridHeight*0.75 - 9*squareSize);
     text(String.format("%.1f",min), x+ gridWidth + 75,y + gridHeight*0.75 + squareSize);
@@ -97,6 +99,10 @@ class GridDisplay{
   
   float[][] getGrid(){
     return array;
+  }
+  
+  float getMaxTemp(){
+    return max; 
   }
   
 }
