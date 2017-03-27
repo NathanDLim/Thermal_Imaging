@@ -12,6 +12,9 @@ import java.util.Calendar;
 thermal_view view;
 Serial myPort;
 
+// Create a session using your Temboo account application details
+TembooSession session = new TembooSession("thermalimaging", "myFirstApp", "QnHzPXgjU69sevWkCWhOJ9N3TMDulcH0");
+
 int LOAD_IMG_X;
 int LOAD_IMG_Y;
 
@@ -37,6 +40,8 @@ int TAKE_TEM_HEI;
 
 //These are set by the config file
 boolean logging = false;
+boolean sendEmail = false;
+String emailAddress = "";
 int loggingDelay = 1000; //in seconds
 float threshold = 0;
 
@@ -47,12 +52,13 @@ void setup(){
   
   
   size(900,700); 
+  surface.setTitle("Thermal Imaging Device");
     
   LOAD_IMG_X = width/20;
-  LOAD_IMG_Y = height/10;
+  LOAD_IMG_Y = height/3;
   
   SAVE_IMG_X = width/20;
-  SAVE_IMG_Y = height/6;
+  SAVE_IMG_Y = height/4;
   
   EXIT_X = width*3/4;
   EXIT_Y = height*93/100;
@@ -85,7 +91,7 @@ void setup(){
 }
 
 void draw(){
-  background(0x60);
+  background(0x40);
   view.draw();
   
   fill(0x9f);
@@ -94,7 +100,6 @@ void draw(){
   ellipse(EXIT_X,EXIT_Y,EXIT_RAD,EXIT_RAD); 
   rect(TAKE_IMG_X,TAKE_IMG_Y,TAKE_IMG_WID,TAKE_IMG_HEI,5);
   rect(TAKE_TEM_X,TAKE_TEM_Y,TAKE_TEM_WID,TAKE_TEM_HEI,5);
-
     
   fill(0);
   text("Exit",EXIT_X,EXIT_Y);
@@ -106,12 +111,20 @@ void draw(){
   if(logging)
     if(millis()-lastLog> loggingDelay*1000){
       lastLog = millis();
-      
-      
+
       requestHeatMap();
-      view.saveToFile();
+      endOfHeatMap();
     }
   
+}
+
+void endOfHeatMap(){
+  if(logging){
+    view.saveToFile();
+    if(sendEmail && view.getMaxTemp() > threshold){
+      runSendEmail();
+    }
+  }
 }
 
 void readConfig(){
@@ -122,9 +135,15 @@ void readConfig(){
   configFile = split(configFile[1],',');
   logging = configFile[0].equals("1");
   loggingDelay = int(configFile[1]);
+  threshold = int(configFile[2]);
+  sendEmail = configFile[3].equals("1");
+  emailAddress = configFile[4];
   
   println(logging);
   println(loggingDelay);
+  println(threshold);
+  println(sendEmail);
+  println(emailAddress);
 }
 
 void serialEvent (Serial myPort) {
@@ -179,16 +198,22 @@ void mouseReleased(){
 }
 
 //Function that sends the email out
-void runSendEmailChoreo() {
+void runSendEmail() {
+  
+  if(session == null){
+    println("Error sending Email");
+    return;
+  }
   // Create the Choreo object using your Temboo session
   SendEmail sendEmailChoreo = new SendEmail(session);
 
   // Set inputs
   sendEmailChoreo.setFromAddress("thermalimagingresponse@gmail.com");
   sendEmailChoreo.setUsername("thermalimagingresponse@gmail.com");
-  sendEmailChoreo.setSubject("test email");
-  sendEmailChoreo.setToAddress("nathandlim@gmail.com");
-  sendEmailChoreo.setMessageBody("Your thermal imaging device detected temperatures about the threshold value.");
+  sendEmailChoreo.setSubject("Thermal Imaging Device Warning");
+  sendEmailChoreo.setToAddress("nathanlim@cmail.carleton.ca");
+  String text = "Your thermal imaging device detected a maximum temperature of " + view.getMaxTemp() + " degrees C which is higher than the threshold temperature of " + threshold + " degrees C";
+  sendEmailChoreo.setMessageBody(text);
   sendEmailChoreo.setPassword("gdmw wymx aynd omca");
 
   // Run the Choreo and store the results
@@ -196,6 +221,7 @@ void runSendEmailChoreo() {
   
   // Print results
   println(sendEmailResults.getSuccess());
+  println("Sent Email");
 
 }
 
@@ -272,6 +298,10 @@ class thermal_view{
   
   void exitButton(){
      exit(); 
+  }
+  
+  float getMaxTemp(){
+    return grid.getMaxTemp(); 
   }
   
 }
