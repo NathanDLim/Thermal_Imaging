@@ -75,7 +75,7 @@ int SingleReading ;
 volatile int panPos;
 volatile int tiltPos;
 
-mode_t mode;
+volatile mode_t mode;
 bool changeMode; // boolean for when the mode should be changed
 
 void setup() {
@@ -91,7 +91,7 @@ void setup() {
   pinMode(AUTO_READY_MODE_PIN_LED, OUTPUT);
   pinMode(AUTO_BUSY_MODE_PIN_LED, OUTPUT);
   pinMode(MANUAL_MODE_PIN_LED, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(JOY_BUTTON_IRQ_PIN), joy_ISR, FALLING); /*Confirm that the joystick button is falling edge*/
+  attachInterrupt(digitalPinToInterrupt(JOY_BUTTON_IRQ_PIN), joy_ISR, RISING); /*Confirm that the joystick button is falling edge*/
 
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
@@ -546,6 +546,7 @@ void joy_ISR(){
       break ;
   }
   update_modeLED() ;
-  delay (IRQ_DELAY) ;
+  //delay (IRQ_DELAY) ; /*Usual delay function dont work inside ISRs*/
+  delayMicroseconds(IRQ_DELAY) ;
 }
 
