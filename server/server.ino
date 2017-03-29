@@ -52,7 +52,7 @@
 
 #define PRE_ROWSEND_DELAY      500        /*Waiting time in ms, before calling the SendRow() functions*/
 #define PRE_RRESPONSE_DELAY    1800       /*Waiting time in ms, before calling the sendRowResponse() function*/
-#define IRQ_DELAY              500                               
+#define IRQ_DELAY              500000        /*in microseconds !!! */                      
 
 //************************************************************************************************
 
@@ -95,7 +95,8 @@ void setup() {
 
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
-  mode = mode_t::AUTO_READY;
+  //mode = mode_t::AUTO_READY;
+  mode = MANUAL ;
 
   rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF module
 
@@ -235,11 +236,14 @@ int auto_service(){
   // count ++ ;
   mode_t prev_mode = mode ;
     
-  if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
-  update_modeLED();
+  //if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
+  //update_modeLED();
 
   if ( CheckRowRequest_init() == 0 ){
     // delay(1800) ;
+    if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
+    update_modeLED();
+    
     delay(PRE_RRESPONSE_DELAY) ;
 
     if (prev_mode == AUTO_READY){
@@ -307,7 +311,7 @@ int CheckRowRequest_init(){
   //   return -1 ;
 
   /*Wait until receiving is complete*/
-   Serial.println("Waiting for Transmission");
+  // Serial.println("Waiting for Transmission");
   //while ( !( rf12_recvDone() ) );  /*--BLOCKING RECEIVE--*/
 
   if ( !( rf12_recvDone() ) ) return -1 ;   /*Implements Non-Blocking Receive*/
@@ -442,11 +446,14 @@ int manual_service(){
   if ( rv == 0 ) {
     delay (PRE_RRESPONSE_DELAY);
     get_singleReading() ;
+    Serial.println("Sending good response for single reading ..");
     send_singleResponse (CONTAINS_SINGLE_CODE) ;
   } else if ( rv == -2 )  {
     delay (PRE_RRESPONSE_DELAY);
+    Serial.println("Sending Denial response for single reading ..");
     send_singleResponse (0x99) ;
   } else {
+    //Serial.println("returning from manual service.. with no work done");
     return -1 ;
   }
 
@@ -456,7 +463,7 @@ int manual_service(){
 /* DESIGENED AS NON_BLOCKING RECEIVE */
 int rcv_singleRequest(){
 
-  Serial.println("Waiting for Reception...rcvSingleRequest()");
+  //Serial.println("Waiting for Reception...rcvSingleRequest()");
   // while ( !( rf12_recvDone() ) );
   if ( !( rf12_recvDone() ) ) return -1 ;  /*Implements Non-Blocking Receive*/
 
@@ -531,15 +538,20 @@ void update_modeLED(){
 
 /*Interrupt Service Routine triggered by the Joystick button*/
 void joy_ISR(){
+  noInterrupts();
   switch (mode){
     case AUTO_READY:
       mode = MANUAL ;
+      Serial.println("switched to manual");
       break ;
     case AUTO_BUSY:
+      Serial.println("currently in auto busy");
+      interrupts();
       return ; /*Busy: Do not Disturb*/
       break ;
     case MANUAL:
       mode = AUTO_READY ;
+      Serial.println("switched to auto ready");
       break ;
     default:
       
@@ -548,5 +560,6 @@ void joy_ISR(){
   update_modeLED() ;
   //delay (IRQ_DELAY) ; /*Usual delay function dont work inside ISRs*/
   delayMicroseconds(IRQ_DELAY) ;
+  interrupts(); /*Re-ENABLE INTERRUPTS*/
 }
 
