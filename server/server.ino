@@ -52,7 +52,8 @@
 
 #define PRE_ROWSEND_DELAY      500        /*Waiting time in ms, before calling the SendRow() functions*/
 #define PRE_RRESPONSE_DELAY    1800       /*Waiting time in ms, before calling the sendRowResponse() function*/
-#define IRQ_DELAY              500000        /*in microseconds !!! */                      
+#define IRQ_DELAY              50000      /*in microseconds !!! */
+#define IRQ_DELAY_TIMES        4         /*No. of times IRQ_DELAY should be made*/                   
 
 //************************************************************************************************
 
@@ -538,7 +539,8 @@ void update_modeLED(){
 
 /*Interrupt Service Routine triggered by the Joystick button*/
 void joy_ISR(){
-  noInterrupts();
+  int i;
+  noInterrupts();   /*Disable Interrupts*/
   switch (mode){
     case AUTO_READY:
       mode = MANUAL ;
@@ -559,7 +561,10 @@ void joy_ISR(){
   }
   update_modeLED() ;
   //delay (IRQ_DELAY) ; /*Usual delay function dont work inside ISRs*/
-  delayMicroseconds(IRQ_DELAY) ;
+  for (i = 0 ; i < IRQ_DELAY_TIMES ; i++){
+    delayMicroseconds(IRQ_DELAY) ;
+  }
+
   interrupts(); /*Re-ENABLE INTERRUPTS*/
 }
 
