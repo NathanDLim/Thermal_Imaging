@@ -1,8 +1,9 @@
-
-
-
+/*
+ * This class stores the array of float temperatures. Displays them in a grid, with square size adjusting based on resolution. 
+ */
+ 
 class GridDisplay{
-  final int gridWidth = 500;
+  final int gridWidth = 500; //x and y lengths for the grid, this does not include the legend
   final int gridHeight = 500;
   float squareSize; //this controls the resolution of the image
   
@@ -11,6 +12,7 @@ class GridDisplay{
   int x,y;
   float max,  min;
   
+  //Here are the 5 colours we use for colour mapping and their RGB values
   //color blue = color(0,0,255); //0
   //color cyan = color(0,128,128); //0.25
   //color green = color(0,255,0); //0.5
@@ -27,6 +29,7 @@ class GridDisplay{
     makeGrey();
   }
   
+  //A function for a test image
   void makeGrey(){
     for(int i = 0;i<array.length;i++){
       for(int j = 0;j<array.length;j++){
@@ -35,6 +38,7 @@ class GridDisplay{
     }
   }
   
+  //Take an integer and array of floats and assign that array to the correct row in our grid
   void addRow(int rn, float[] row){
     if(rn ==0){
       max = 0; min = 100;
@@ -48,10 +52,12 @@ class GridDisplay{
     }
   }
   
+  //Take one value and normalize it based on the max and min values
   float normalize(float val){
     return (val-min)/(max-min);
   }
   
+  //Function to transform one normalized value to a colour
   color heatMapping(float val){
    int r=0, g=0,b=0;
    if(val >=0 && val < 0.25){ //blue - cyan
@@ -75,10 +81,12 @@ class GridDisplay{
    return color(r,g,b);
   }
   
+  //Draw the grid and legend
   void draw(){
     fill(0xe0);
     rect(x-5,y-5,gridHeight+10,gridWidth+10);
     noStroke();
+    //Grid loop
     for(int i = 0;i<array.length;i++){
       for(int j = 0;j<array[i].length;j++){
         fill(heatMapping(normalize(array[i][j])));
@@ -86,11 +94,13 @@ class GridDisplay{
       }
     }
     
+    //Legend loop
     for(int i = 0; i < 20;i++){
        fill(heatMapping(i/20.0));
        rect(x+ gridWidth + 40,y + gridHeight*0.75 - i*squareSize, squareSize,squareSize);
     }
     
+    //Text showing legend temperatures
     fill(0xff);
     text(String.format("%.1f",max), x+ gridWidth + 75,y + gridHeight*0.75 - 19*squareSize);
     text(String.format("%.1f",(max-min)/2), x+ gridWidth + 75,y + gridHeight*0.75 - 9*squareSize);
