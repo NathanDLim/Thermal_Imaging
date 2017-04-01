@@ -54,8 +54,17 @@ class GridDisplay{
   
   //Take one value and normalize it based on the max and min values
   float normalize(float val){
+    //float minimum = log(min);
+    //float m = log(max);
+    
+    //return log(1+(max-min)*val)/(20*log(1.5));
+    
+    //return (log(val)-minimum)/(m+minimum); 
     return (val-min)/(max-min);
+    
   }
+  
+  
   
   //Function to transform one normalized value to a colour
   color heatMapping(float val){
@@ -94,6 +103,8 @@ class GridDisplay{
       }
     }
     
+    
+    
     //Legend loop
     for(int i = 0; i < 20;i++){
        fill(heatMapping(i/20.0));
@@ -102,9 +113,9 @@ class GridDisplay{
     
     //Text showing legend temperatures
     fill(0xff);
-    text(String.format("%.1f",max), x+ gridWidth + 75,y + gridHeight*0.75 - 19*squareSize);
-    text(String.format("%.1f",(max-min)/2), x+ gridWidth + 75,y + gridHeight*0.75 - 9*squareSize);
-    text(String.format("%.1f",min), x+ gridWidth + 75,y + gridHeight*0.75 + squareSize);
+    text(String.format("%.2f",max), x+ gridWidth + 75,y + gridHeight*0.75 - 19*squareSize);
+    text(String.format("%.2f",(max-min)/2+min), x+ gridWidth + 75,y + gridHeight*0.75 - 9*squareSize);
+    text(String.format("%.2f",min), x+ gridWidth + 75,y + gridHeight*0.75 + squareSize);
   }
   
   float[][] getGrid(){
