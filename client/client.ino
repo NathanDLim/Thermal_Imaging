@@ -9,7 +9,6 @@
 
 #include <Servo.h>
 #include <Wire.h>
-#include <Adafruit_MLX90614.h>
 #define RF69_COMPAT 1
 #include <JeeLib.h>
 
@@ -20,6 +19,8 @@
 
 #define PAN_RES 30 //These are the number of points taken in automatic mode, and the 2D array size.
 #define TILT_RES 30
+
+#define ROW_PARTIAL 10 // the number of readings in one RF send. The resolution must be a multiple of this
 
 #define JOY_PAN_PIN A1 //These are the analog pin numbers for the joystick potentiometers. 
 #define JOY_TILT_PIN A0
@@ -42,9 +43,9 @@
 #define REQUEST_INIT_CODE    0xFF 
 #define INIT_RESPONSE_CODE   0xCC
 #define MANUAL_CODE          0xDD
-#define CONTAINS_SINGLE_CODE 0xAF
+#define CONTAINS_SINGLE_CODE 0xA3
 
-//#define DEBUG
+#define DEBUG
 
 //************************************************************************************************
 
@@ -128,7 +129,12 @@ int CheckRowResponse(){
 #endif
 
   /*Wait until receiving is complete*/
+  long count=0;
   while ( !( rf12_recvDone() ) ) {
+    if(count++ == 2000000){
+      Serial.println("CheckRowResponse timeout");
+      return -1;
+    }
     //Serial.println("waiting for Row response ....");
    } ;
    
@@ -183,37 +189,55 @@ int sendRowRequest(uint8_t RowNumber){
 /*Store the received Row data*/
 int rcvRow(){
 
+ //We split up the row into partial rows, and combine them after
+  for(int i = 0; i<TILT_RES/ROW_PARTIAL;i++){
+    
 #ifdef DEBUG
   Serial.println("rcvRow  line A");
 #endif
 
-  /*Check for a received packet*/
-  while ( !rf12_recvDone() ) ;
-    //return -1 ;
+    /*Check for a received packet*/
+  /*Wait until receiving is complete*/
+  long count=0;
+  while ( !( rf12_recvDone() ) ) {
+    if(count++ == 2000000){
+      Serial.println("rcv_Row timeout");
+      return -1;
+    }
+    //Serial.println("waiting for Row response ....");
+   } ;
 
 #ifdef DEBUG
   Serial.println("rcvRow  line B");
 #endif
 
-  /*Check for valid length of the received packet*/
-  if ( !(rf12_len == TILT_RES*sizeof(int)) )
-    return -1 ;
+    /*Check for valid length of the received packet*/
+    if ( !(rf12_len == ROW_PARTIAL*sizeof(int)) ){
+      Serial.print("Received data, length: ");
+      Serial.println(rf12_len);
+      return -1 ;
+    }
 
 #ifdef DEBUG
   Serial.println("rcvRow  line C");
 #endif
 
-  /*Check for a valid CRC.
-  --It is a check for data integrity using some mathematical algorithms*/
-  if ( !(rf12_crc == 0) )
-    return -1 ;
+    /*Check for a valid CRC.
+    --It is a check for data integrity using some mathematical algorithms*/
+    if ( !(rf12_crc == 0) ){
+      Serial.println("Bad CRC");
+      return -3 ;
+    }
 
 #ifdef DEBUG
   Serial.println("rcvRow  line D");
 #endif
-  
-  /*Save the received data into the row Array*/
-  memcpy(RowReadings, (int*) rf12_data, TILT_RES*sizeof(int) ) ;
+
+   for(int j =  0; j<10;j++)
+    Serial.print(((int*) rf12_data)[j]);
+    /*Save the received data into the row Array*/
+    memcpy(RowReadings+ROW_PARTIAL*i, (int*) rf12_data, ROW_PARTIAL*sizeof(int) ) ;
+  }
 
 #ifdef DEBUG
   Serial.println("rcvRow  line E");
@@ -236,30 +260,55 @@ int generate_image(){
     return -1 ;
   }
 
+  int numTries = 0;
+
   for (i = 0 ; i < TILT_RES ; i++){
-    
+     numTries++;
+     
+     if(numTries == 5){ //only try to get the same row 5 times before cancelling the entire thing
+      Serial.println("Cancelling generate image");
+      break;
+     }
+      
 #ifdef DEBUG
     Serial.print("iterating in generate_image  .... ");
 #endif
 
     if ( sendRowRequest_init() ){
       Serial.print("error 2");
-      return -1 ;}
+      i--;
+      delay(1000);
+      continue;
+      //return -1 ;
+    }
     delay (20) ;
     if ( CheckRowResponse() ){
       Serial.print("error 3");
-      return -1 ;}
+      i--;
+      delay(3000);
+      continue;
+      //return -1 ;
+    }
     delay(20) ;
     if ( sendRowRequest(i) ){
       Serial.print("error 4");
       return -1 ;}
     delay(20) ;
-    if ( rcvRow() ){
-      Serial.print("error 5");
-      return -1 ;}
+    int ret = rcvRow();
+    if (ret != 0){ //This is a bad CRC, we try to get that row again
+      i--;
+      delay(1000);
+      continue;
+    }
+//    else if(ret != 0){
+//      Serial.print("error 5");
+//      return -1 ;}
     delay(20) ;
     sendRow_COM(i) ;
+    delay(1000);
     delay(20) ;
+
+    numTries = 0;
   }
 }
 
@@ -332,7 +381,12 @@ int rcvSingleResponse() {
 #endif
 
   /*Wait until receiving is complete*/
+  long count=0;
   while ( !( rf12_recvDone() ) ) {
+    if(count++ == 2000000){
+      Serial.println("rcv_Single timeout");
+      return -1;
+    }
     //Serial.println("waiting for Row response ....");
    } ;
    
@@ -358,24 +412,31 @@ int rcvSingleResponse() {
   Serial.println("rcvSingleResponse  line D");
 #endif
 
-  /*Check if response is as expc*/
-  if ( rf12_hdr == CONTAINS_SINGLE_CODE ){
-    memcpy(&SingleReading, (int*) rf12_data, sizeof(int) ) ;
+
+
+memcpy(&SingleReading, (int*) rf12_data, sizeof(int) ) ;
     return 0 ;
-  }
-  else
-    return -1 ;
 
-#ifdef DEBUG
-  Serial.println("rcvSingleResponse  line E");
-#endif
+//  /*Check if response is as expc*/
+//  if ( rf12_hdr == CONTAINS_SINGLE_CODE ){
+//#ifdef DEBUG
+//  Serial.println("rcvSingleResponse  line E");
+//#endif
+//    memcpy(&SingleReading, (int*) rf12_data, sizeof(int) ) ;
+//    return 0 ;
+//  }
+//  else{
+//#ifdef DEBUG
+//  Serial.println("rcvSingleResponse  line F");
+//#endif
+//    return -1 ;
+//  }
 
-  return -1 ;
 
 }
 
 void sendSingle_COM(){
 
-  Serial.print("Sending Single Reading");
-  Serial.print(SingleReading);
+  Serial.print("!");
+  Serial.println(SingleReading);
 }
