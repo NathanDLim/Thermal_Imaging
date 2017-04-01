@@ -51,7 +51,7 @@ Serial myPort;
 TembooSession session = new TembooSession("thermalimaging", "myFirstApp", "QnHzPXgjU69sevWkCWhOJ9N3TMDulcH0");
 int resolution = 30;
 
-boolean heatMapInProgress;
+boolean heatMapFinished;
 
 //setup function creates the objects
 void setup(){
@@ -85,10 +85,10 @@ void setup(){
   //create the grid, at x=200, y=100, with resolution
   grid = new GridDisplay(200,100,resolution); 
   
-  heatMapInProgress = false;
+  heatMapFinished = false;
   
   //This chooses the serial port of the Client Jeenode
-  if(Serial.list().length >= 3){
+  if(Serial.list().length >= 2){
     myPort = new Serial(this, Serial.list()[Serial.list().length - 1], 9600); 
     myPort.bufferUntil('\n'); 
     delay(100);
@@ -177,16 +177,19 @@ void readConfig(){
 void serialEvent (Serial myPort) {
   // get the ASCII string:
   String inString = myPort.readStringUntil('\n');
-  
+  println(inString);
   if(inString.substring(0,1).equals("!")){
-    pointTemp = float(inString.substring(1));
+    pointTemp = float(inString.substring(1))/100;
     return;
   }
   
   //println(inString);
   parseRow(inString,true);
-  if(heatMapInProgress)
-    endOfHeatMap();
+  
+  if(heatMapFinished){
+     heatMapFinished = false;
+     endOfHeatMap();
+  }
 }
 
 //Reads a logged file and parses the data
@@ -277,8 +280,11 @@ boolean parseRow(String line, boolean divideByTen){
   
   if(line.substring(0,3).equals("ROW")){
     row = int(line.substring(3,line.indexOf(':')));
-    
-    heatMapInProgress = row == resolution-1? false:true;
+    if(row == resolution - 1){
+      heatMapFinished = true;
+      println("heat map finished");
+    }
+    //heatMapFinished = row == resolution-1? false:true;
     
   }else{
     return false; 
@@ -296,7 +302,7 @@ boolean parseRow(String line, boolean divideByTen){
   for(int i = 0; i< values.length; i++){
      fVals[i] = float(values[i]);
      if(divideByTen)
-       fVals[i] /= 10;
+       fVals[i] /= 100;
   }
 
   grid.addRow(row, fVals);
@@ -323,4 +329,3 @@ void saveToFile(){
   out.flush();
   out.close();
 }
-
