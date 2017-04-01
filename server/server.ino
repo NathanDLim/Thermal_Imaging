@@ -13,11 +13,13 @@
 
 //**********************************************************************************************
 
-#define PAN_DEFAULT       50 //These are the angles that the pan and tilt motors will default to
+#define PAN_DEFAULT       70 //These are the angles that the pan and tilt motors will default to
 #define TILT_DEFAULT      80
 
+#define ROW_PARTIAL       10
+
 #define PAN_RES           30 //These are the number of points taken in automatic mode, and the 2D array size.
-#define TILT_RES          30
+#define TILT_RES          30//21//30
 
 #define JOY_PAN_PIN                   A1 //=Pin 15. These are the analog pin numbers for the joystick potentiometers. 
 #define JOY_TILT_PIN                  A0 //=Pin 14
@@ -45,13 +47,13 @@
 #define MANUAL_CODE           0xDD
 #define CONTAINS_SINGLE_CODE  0xAF
 
-#define MultiplyFactor      10.000        /*Increases the decimal of the
+#define MultiplyFactor      100.000        /*Increases the decimal of the
                                           temperature float value. This allows sending
                                           the temperature values as int while keeping decimal places
                                           e.g. 45.93 degrees celcius sent as 4593 if factor is 10.00*/ 
 
-#define PRE_ROWSEND_DELAY      500        /*Waiting time in ms, before calling the SendRow() functions*/
-#define PRE_RRESPONSE_DELAY    1800       /*Waiting time in ms, before calling the sendRowResponse() function*/
+#define PRE_ROWSEND_DELAY      500//100 //3000//500        /*Waiting time in ms, before calling the SendRow() functions*/
+#define PRE_RRESPONSE_DELAY    3000  //1800       /*Waiting time in ms, before calling the sendRowResponse() function*/
 #define IRQ_DELAY              50000      /*in microseconds !!! */
 #define IRQ_DELAY_TIMES        4         /*No. of times IRQ_DELAY should be made*/                   
 
@@ -84,6 +86,10 @@ void setup() {
   // tiltServo.attach(5);
   panServo.attach(PAN_PWM_PIN);  // attaches the servo on pin 4 to the servo object
   tiltServo.attach(TILT_PWM_PIN);
+
+  panServo.write(PAN_DEFAULT);
+  tiltServo.write(TILT_DEFAULT);
+  
   mlx.begin();  //start the mlx IR sensor using the I2C pins
 
   //Set the pin modes
@@ -119,117 +125,13 @@ void loop() {
     default:
       break;
   }
-
-
-  //check if the user wants to change the mode
-//  if(digitalRead(MODE_BUTTON_PIN))
-//    updateMode();
-    
-  //delay(15);
-
 }
 
-/*
- * This function checks if the button to change modes was pressed and updates the LEDs
- * The mode cycle is as follows: AUTO -> MANUAL -> AUTO
- */
-// void updateMode(){
-//   //check if the mode button was pressed, and update the mode as well as the corresponding LED
-//   switch(mode){
-//       case AUTO:
-//         mode = mode_t::MANUAL;
-//         digitalWrite(AUTO_MODE_PIN,0);
-//         digitalWrite(MANUAL_MODE_PIN,1);
-//         digitalWrite(OTHER_MODE_PIN,0);
-//         break;
-//       case MANUAL:
-//         if(changeMode)
-//           mode = mode_t::AUTO;
-//         digitalWrite(AUTO_MODE_PIN,1);
-//         digitalWrite(MANUAL_MODE_PIN,0);
-//         digitalWrite(OTHER_MODE_PIN,0);
-//         break;
-//       default:
-//         mode = mode_t::AUTO;
-//     }
-// }
 
-/*
- * This function controls all that happens in manual mode
- * 
- * It samples the potentiometers and sets the motors to the corresponding angle
- */
-// void manualLoop(){
-//   //read the joystick potentiometers and map the analog readings (0-1023) to the servo angles (1-179). We exclude angle 0 and 180 because they have some artifacts.
-//   // int p = analogRead(JOY_PAN_PIN)*178/1023 + 1;
-//   // int t = analogRead(JOY_TILT_PIN)*178/1023 + 1;
-
-//   // p = p>179 || p < 1? 90:p;
-//   // t = t>179 || t < 1? 90:t;
-  
-//   // panServo.write(p);
-//   // tiltServo.write(t);
-//   // delay(15); //wait for servos to respond
-
-//   Serial.println("MANUAL service start LOOP Start");
-//   manual_service() ;
-
-// }
-
-/*
- * This function controls all that happens in automatic mode
- */
-// void autoLoop(){
-//   // if (Serial.available() > 0){
-//   //   if(Serial.read() == '!'){
-//   //     makePicture();
-//   //     //sendPicture();
-//   //   }
-//   // }
-//   Serial.println("AUTO Service Start");
-//   auto_service() ;
-// }
-
-/*
- * This function will send the 2D array over RF
- * It currently prints through the Serial port.
- */
-//void sendPicture(){
-//  for(int i = 0; i < PAN_RES; i++){
-//    for (int k = 0; k < TILT_RES; k++){
-//      Serial.print(readings[i][k]);
-//      Serial.print(" ");
-//    }
-//    Serial.println();
-//  }  
-//}
-
-/*
- * This function iterates through the array of points specified by the servo defaults and resolutions (ie. PAN_DEFAULT, PAN_RES)
- */
-//void makePicture(){
-//  
-//  for (panPos = PAN_DEFAULT - PAN_RES/2; panPos < PAN_DEFAULT + PAN_RES/2; ++panPos) { // PAN loop. Goes around the default angle, res/2 below and res/2 above.
-//    // in steps of 1 degree
-//    panServo.write(panPos);              // tell servo to go to position in variable 'pos'
-//      for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
-//        tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
-//        delay(15);                       // waits 15ms for the servo to reach the position
-//       
-//        readings[panPos-75][tiltPos-75] = byte(mlx.readObjectTempC());
-//
-////        Serial.print(int(tiltPos-75));
-////        Serial.print(":");
-////        Serial.print(String(readings[panPos-75][tiltPos-75]));
-////        Serial.print(" ");
-//      }
-////      Serial.println(int(panPos-75));
-////      Serial.print("\n");
-//  }
-//}
 
 /*Waits for Row Request and sends row values if request is received. */
 int auto_service(){
+  int rv ;
   //Serial.println("AUTO Service Start..");
 
   // static int count ;
@@ -240,7 +142,9 @@ int auto_service(){
   //if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
   //update_modeLED();
 
-  if ( CheckRowRequest_init() == 0 ){
+  rv = CheckRowRequest_init() ;
+  if ( rv == 0 ){
+    Serial.println("Check row Request_init == 0");
     // delay(1800) ;
     if (mode == AUTO_READY) mode = AUTO_BUSY ;  /*Put mode to busy*/
     update_modeLED();
@@ -287,12 +191,13 @@ int auto_service(){
       if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
       return -1 ;
     }
-    delay(20) ;
+    //delay(20) ;
     if (mode == AUTO_BUSY) mode = AUTO_READY ;  /*Put mode back to ready*/
+    Serial.println("Returning 0 from auto_service ");
     update_modeLED() ;
     return 0 ;
 
-  } else if ( CheckRowRequest_init() == -2 ) {  /*Unexpected Request Received*/
+  } else if ( rv == -2 ) {  /*Unexpected Request Received*/
     delay(PRE_RRESPONSE_DELAY) ;
     sendRowResponse(0) ;
     Serial.println("Initialization denied, 88");
@@ -321,15 +226,24 @@ int CheckRowRequest_init(){
   /*Check for valid length of the received packet*/
   if ( rf12_len != 1 )
     return -2 ;
-
+    
+  Serial.print("RECEIVE LENGTH:");
+  Serial.println(rf12_len);
+  
   //Check for a valid CRC.
   //--It is a check for data integrity using some mathematical algorithms
   if ( rf12_crc != 0 )
     return -2 ;
-
+  Serial.println("CRC Good");
+  
+  Serial.print("data: ");
+  Serial.println(*( (uint8_t*) rf12_data));
+  
   /*Check if request is as expc*/
-  if ( *( (uint8_t*) rf12_data ) == REQUEST_INIT_CODE )
+  if ( *( (uint8_t*) rf12_data ) == REQUEST_INIT_CODE ){
+    Serial.print("returning 0 from CheckRowRequest_init ");
     return 0 ;
+    }
   else
     return -2 ;
 
@@ -390,7 +304,7 @@ void getRow(){
   int count = 0;
   for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
     tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
-    delay(15);                       // waits 15ms for the servo to reach the position
+    delay(50);                       // waits 15ms for the servo to reach the position
 
 //    Serial.println("Reading temp");
     tempFloat = mlx.readObjectTempC() ;
@@ -407,17 +321,43 @@ void getRow(){
 /*-Sends a row of IR sensor data to the client.
 ---Should be called after getRow() has finished execution. */
 int sendRow(){
+  int i,j ;
+  int* ptr ;
+  ptr = RowReadings ;
+  
   Serial.println("Send row entered");
-//  for (int i = 0; i< TILT_RES; i++){
-//    Serial.print(" ");
-//    Serial.print(RowReadings[i]);
-//  }
-//  int fake[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 ,18,19,20,21,22,23,24,25,26,27,28,29};
-  while(!rf12_canSend())
-    rf12_recvDone(); // wait for any receiving to finish
-  rf12_sendStart( 0, RowReadings, TILT_RES*sizeof(int) );    /*Send a row of readings data*/
-//  rf12_sendStart( 0, fake, TILT_RES*sizeof(int) );
-  rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+
+  for (i = 0 ; i < TILT_RES/ROW_PARTIAL ; i++) {
+
+        while(!rf12_canSend())
+      rf12_recvDone(); // wait for any receiving to finish
+    Serial.println("Send row NOW ..");
+    Serial.println(i);
+  
+    for (j = 0 ; j < ROW_PARTIAL ; j ++ ){
+        //Serial.print(  *( ptr + i*(ROW_PARTIAL*sizeof(int) ) + (j*sizeof(int) ) ) );
+        Serial.print(  *( ptr + i*ROW_PARTIAL + j ) );
+        Serial.println(" ");
+    }
+  
+    
+    
+    //rf12_sendStart( 0, ptr + i*(ROW_PARTIAL*sizeof(int) ) , ROW_PARTIAL*sizeof(int) );    /*Send a row of readings data*/
+    rf12_sendStart( 0, ptr + i*ROW_PARTIAL , ROW_PARTIAL*sizeof(int) );    /*Send a row of readings data*/
+  //  rf12_sendStart( 0, fake, TILT_RES*sizeof(int) );
+    rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
+  
+      delay (1000) ;
+    
+  }
+
+  
+//  while(!rf12_canSend())
+//    rf12_recvDone(); // wait for any receiving to finish
+//  Serial.println("Send row NOW ..");
+//  rf12_sendStart( 0, RowReadings, TILT_RES*sizeof(int) );    /*Send a row of readings data*/
+////  rf12_sendStart( 0, fake, TILT_RES*sizeof(int) );
+//  rf12_sendWait ( 0 ) ; /*Wait for the send to finish, 0=NORMAL Mode*/
   Serial.println("Exit send Row");
   return 0 ;
 }
@@ -567,4 +507,3 @@ void joy_ISR(){
 
   interrupts(); /*Re-ENABLE INTERRUPTS*/
 }
-
