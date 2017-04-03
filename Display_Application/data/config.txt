@@ -1,2 +1,2 @@
-Log(0/1),TimeDelay(s),Threshold(Celcius)
-0,20,30
+Log(0/1),TimeDelay(s),Threshold(Celcius),sendEmail,EmailAddress
+0,20,30,0,nathanlim@cmail.carleton.ca
