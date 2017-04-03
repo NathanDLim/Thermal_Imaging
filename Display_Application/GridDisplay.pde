@@ -24,7 +24,7 @@ class GridDisplay{
     array = new float[floor(gridWidth/squareSize)][floor(gridHeight/squareSize)];
     this.x=x;
     this.y=y;
-    max = 58;
+    max = 2*(res-1);
     min = 0;
     makeGrey();
   }
