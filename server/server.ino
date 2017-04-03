@@ -18,8 +18,8 @@
 
 #define ROW_PARTIAL       10
 
-#define PAN_RES           30 //These are the number of points taken in automatic mode, and the 2D array size.
-#define TILT_RES          30//21//30
+#define PAN_RES           40//30 //These are the number of points taken in automatic mode, and the 2D array size.
+#define TILT_RES          40//30//21//30
 
 #define JOY_PAN_PIN                   A1 //=Pin 15. These are the analog pin numbers for the joystick potentiometers. 
 #define JOY_TILT_PIN                  A0 //=Pin 14
@@ -40,7 +40,7 @@
 //#define MODE_BUTTON_PIN   11 // controls the switching of modes
 
 #define NODE               2 
-#define GROUP            212 
+#define GROUP            133 
 
 #define REQUEST_INIT_CODE     0xFF 
 #define INIT_RESPONSE_CODE    0xCC
@@ -98,7 +98,9 @@ void setup() {
   pinMode(AUTO_READY_MODE_PIN_LED, OUTPUT);
   pinMode(AUTO_BUSY_MODE_PIN_LED, OUTPUT);
   pinMode(MANUAL_MODE_PIN_LED, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(JOY_BUTTON_IRQ_PIN), joy_ISR, RISING); /*Confirm that the joystick button is falling edge*/
+  //attachInterrupt(digitalPinToInterrupt(JOY_BUTTON_IRQ_PIN), joy_ISR, RISING); /*Confirm that the joystick button is falling edge*/
+  attachInterrupt(digitalPinToInterrupt(JOY_BUTTON_IRQ_PIN), joy_ISR, FALLING); /*Confirm that the joystick button is falling edge*/
+
 
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
@@ -302,6 +304,8 @@ void getRow(){
   //for (i = 0 ; i < TILT_RES ; i++)
     //RowReadings = 0.0 ;
   int count = 0;
+  tiltServo.write(TILT_DEFAULT - TILT_RES/2);
+  delay(100);
   for (tiltPos = TILT_DEFAULT - TILT_RES/2; tiltPos < TILT_DEFAULT + TILT_RES/2; ++tiltPos) { // TILT loop. Goes around the default angle, res/2 below and res/2 above.
     tiltServo.write(tiltPos);              // tell servo to go to position in variable 'pos'
     delay(50);                       // waits 15ms for the servo to reach the position
@@ -372,14 +376,27 @@ int manual_service(){
   }
 
   /*read the joystick potentiometers and map the analog readings (0-1023) to the servo angles (1-179). We exclude angle 0 and 180 because they have some artifacts.*/
-  int p = analogRead(JOY_PAN_PIN)*178/1023 + 1;
-  int t = analogRead(JOY_TILT_PIN)*178/1023 + 1;
+  int p = analogRead(JOY_PAN_PIN);
+  int t = analogRead(JOY_TILT_PIN);
 
-  p = p>179 || p < 1? 90:p;
-  t = t>179 || t < 1? 90:t;
+  if(p > 800)
+    panPos++;
+  else if(p < 200)
+    panPos--;
+
+  if(p > 800)
+    panPos++;
+  else if(p < 200)
+    panPos--;
+
+  if(t > 800)
+    tiltPos++;
+  else if(t < 200)
+    tiltPos--;
+
   
-  panServo.write(p);
-  tiltServo.write(t);
+  panServo.write(panPos);
+  tiltServo.write(tiltPos);
   delay(15); //wait for servos to respond
 
   rv = rcv_singleRequest() ;
