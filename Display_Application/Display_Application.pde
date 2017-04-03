@@ -49,7 +49,7 @@ Serial myPort;
 
 // Create a session using your Temboo account application details
 TembooSession session = new TembooSession("thermalimaging", "myFirstApp", "QnHzPXgjU69sevWkCWhOJ9N3TMDulcH0");
-int resolution = 30;
+int resolution = 40;
 
 boolean heatMapFinished;
 
