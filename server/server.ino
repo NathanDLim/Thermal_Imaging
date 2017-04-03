@@ -103,7 +103,7 @@ void setup() {
   panPos = PAN_DEFAULT;
   tiltPos = TILT_DEFAULT;
   //mode = mode_t::AUTO_READY;
-  mode = MANUAL ;
+  mode = AUTO_READY ;
 
   rf12_initialize(NODE, RF12_915MHZ, GROUP); // initialize RF module
 
