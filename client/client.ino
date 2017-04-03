@@ -17,8 +17,8 @@
 #define PAN_DEFAULT 50 //These are the angles that the pan and tilt motors will default to
 #define TILT_DEFAULT 80
 
-#define PAN_RES 30 //These are the number of points taken in automatic mode, and the 2D array size.
-#define TILT_RES 30
+#define PAN_RES 40 //These are the number of points taken in automatic mode, and the 2D array size.
+#define TILT_RES 40
 
 #define ROW_PARTIAL 10 // the number of readings in one RF send. The resolution must be a multiple of this
 
@@ -35,7 +35,7 @@
 #define MODE_BUTTON_PIN 11 // controls the switching of modes
 
 #define NODE    3
-#define GROUP   212
+#define GROUP   133
 
 /* Acknowledgment Codes */
 #define PC_AUTO_INIT         0xAA
